@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, downloadFile } from "../services/api";
 import FormField from "./FormField";
+import {
+  ListingImage,
+  ListingImagesEditor,
+  PriceTiers,
+  TierEditor,
+} from "./CatalogMedia";
 
 const emptyListing = {
   title: "",
@@ -11,6 +17,10 @@ const emptyListing = {
   quantity: "",
   minOrderQuantity: "",
   pricePerUnit: "",
+  color: "",
+  composition: "",
+  location: "",
+  priceTiers: [],
 };
 const units = ["kg", "meter", "roll", "piece"];
 const price = (value) => `PKR ${Number(value).toLocaleString("en-PK")}`;
@@ -34,6 +44,7 @@ export function Discovery() {
     limit: 12,
   });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
     api(`/listings?${new URLSearchParams(search)}`)
@@ -45,6 +56,9 @@ export function Discovery() {
       })
       .catch((err) => {
         if (active) setError(err.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => {
       active = false;
@@ -58,6 +72,8 @@ export function Discovery() {
         className="catalog-filters"
         onSubmit={(e) => {
           e.preventDefault();
+          setLoading(true);
+          setError("");
           setSearch({ ...filters, page: 1 });
         }}
       >
@@ -92,12 +108,15 @@ export function Discovery() {
           {error}
         </p>
       )}
-      {!error && !result.items.length && (
+      {loading && <p role="status">Loading materials…</p>}
+      {!loading && !error && !result.items.length && (
         <p>No published materials match yet. Try a broader search.</p>
       )}
       <div className="catalog-grid">
         {result.items.map((item) => (
           <article className="catalog-card" key={item.id}>
+            {item.is_demo && <span className="demo-badge">Demo stock</span>}
+            {item.images?.[0] && <ListingImage image={item.images[0]} />}
             <span className="eyebrow">
               {item.material} · {item.condition}
             </span>
@@ -114,6 +133,12 @@ export function Discovery() {
               <summary>See details</summary>
               <p>{item.description}</p>
               <p>
+                {[item.color, item.composition, item.location]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <PriceTiers tiers={item.price_tiers} unit={item.unit} />
+              <p>
                 Direct purchasing opens in the commerce phase. Below MOQ? Group
                 buying will be available there.
               </p>
@@ -126,7 +151,10 @@ export function Discovery() {
           <button
             type="button"
             disabled={search.page === 1}
-            onClick={() => setSearch({ ...search, page: search.page - 1 })}
+            onClick={() => {
+              setLoading(true);
+              setSearch({ ...search, page: search.page - 1 });
+            }}
           >
             Previous
           </button>
@@ -136,7 +164,10 @@ export function Discovery() {
           <button
             type="button"
             disabled={search.page * result.limit >= result.total}
-            onClick={() => setSearch({ ...search, page: search.page + 1 })}
+            onClick={() => {
+              setLoading(true);
+              setSearch({ ...search, page: search.page + 1 });
+            }}
           >
             Next
           </button>
@@ -156,6 +187,7 @@ export function SellerListings({ membership }) {
   const [file, setFile] = useState(null);
   const [requestKey, setRequestKey] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [editingVersion, setEditingVersion] = useState(null);
   let saveLabel = "Save draft";
   if (editingId) saveLabel = "Save changes";
   if (busy) saveLabel = "Saving…";
@@ -189,7 +221,9 @@ export function SellerListings({ membership }) {
     try {
       await api(editingId ? `${url}/${editingId}` : url, {
         method: editingId ? "PUT" : "POST",
-        body: JSON.stringify(input),
+        body: JSON.stringify(
+          editingId ? { ...input, version: editingVersion } : input,
+        ),
       });
       setInput(emptyListing);
       setEditingId(null);
@@ -207,16 +241,35 @@ export function SellerListings({ membership }) {
       setBusy(false);
     }
   }
-  async function submit(id) {
+  async function submit(item) {
     try {
-      await api(`${url}/${id}/submit`, { method: "POST" });
+      await api(`${url}/${item.id}/submit`, {
+        method: "POST",
+        body: JSON.stringify({ version: item.version }),
+      });
       await load();
     } catch (err) {
       setError(err.message);
     }
   }
+  async function archive(item) {
+    setBusy(true);
+    setError("");
+    try {
+      await api(`${url}/${item.id}/archive`, {
+        method: "POST",
+        body: JSON.stringify({ version: item.version }),
+      });
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   function edit(item) {
     setEditingId(item.id);
+    setEditingVersion(item.version);
     setInput({
       title: item.title,
       description: item.description,
@@ -226,8 +279,20 @@ export function SellerListings({ membership }) {
       quantity: item.quantity,
       minOrderQuantity: item.min_order_quantity,
       pricePerUnit: item.price_per_unit,
+      color: item.color,
+      composition: item.composition,
+      location: item.location,
+      priceTiers: (item.price_tiers || []).map((tier) => ({
+        minQuantity: tier.minQuantity,
+        pricePerUnit: tier.pricePerUnit,
+      })),
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({
+      top: 0,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
   }
   async function previewFile(e) {
     e.preventDefault();
@@ -336,6 +401,23 @@ export function SellerListings({ membership }) {
               setInput({ ...input, pricePerUnit: e.target.value })
             }
             required
+          />
+          {[
+            ["color", "Color", 80],
+            ["composition", "Composition", 200],
+            ["location", "Location", 180],
+          ].map(([key, label, max]) => (
+            <FormField
+              key={key}
+              label={`${label} (optional)`}
+              value={input[key]}
+              maxLength={max}
+              onChange={(e) => setInput({ ...input, [key]: e.target.value })}
+            />
+          ))}
+          <TierEditor
+            tiers={input.priceTiers}
+            onChange={(priceTiers) => setInput({ ...input, priceTiers })}
           />
           <label className="field listing-description">
             <span>Description (at least 20 characters)</span>
@@ -453,7 +535,11 @@ export function SellerListings({ membership }) {
         {items.map((item) => (
           <article className="catalog-card" key={item.id}>
             <span className="eyebrow">{item.status.replace("_", " ")}</span>
+            {item.is_demo && <span className="demo-badge">Demo stock</span>}
+            {item.images?.[0] && <ListingImage image={item.images[0]} />}
             <h3>{item.title}</h3>
+            <PriceTiers tiers={item.price_tiers} unit={item.unit} />
+            {item.review_reason && <p>Review note: {item.review_reason}</p>}
             <p>
               {item.material} · {item.quantity} {item.unit}
             </p>
@@ -462,17 +548,35 @@ export function SellerListings({ membership }) {
             </strong>
             {canEdit && ["draft", "rejected"].includes(item.status) && (
               <>
+                <ListingImagesEditor listing={item} url={url} onSaved={load} />
                 <button type="button" onClick={() => edit(item)}>
                   Edit draft
                 </button>
                 <button
                   type="button"
                   className="button"
-                  onClick={() => submit(item.id)}
+                  onClick={() => submit(item)}
+                  disabled={busy}
                 >
                   Submit for review
                 </button>
               </>
+            )}
+            {canEdit && item.status !== "archived" && (
+              <details>
+                <summary>Archive this listing</summary>
+                <p>
+                  Archiving removes this stock from discovery and matching. Keep
+                  the record for audit; it cannot be republished.
+                </p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => archive(item)}
+                >
+                  Confirm archive
+                </button>
+              </details>
             )}
           </article>
         ))}
@@ -530,6 +634,19 @@ export function Requirements() {
   async function match(id) {
     try {
       setMatches(await api(`/requirements/${id}/matches`));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+  async function changeStatus(item, status) {
+    setError("");
+    try {
+      await api(`/requirements/${item.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, version: item.version }),
+      });
+      setItems(await api("/requirements"));
+      setMatches(null);
     } catch (err) {
       setError(err.message);
     }
@@ -593,11 +710,38 @@ export function Requirements() {
           <strong>
             {item.material} · {item.min_quantity} {item.unit}
           </strong>
-          <button type="button" onClick={() => match(item.id)}>
+          <span>{item.status}</span>
+          {item.status !== "closed" && (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  changeStatus(
+                    item,
+                    item.status === "active" ? "paused" : "active",
+                  )
+                }
+              >
+                {item.status === "active" ? "Pause" : "Resume"}
+              </button>
+              <button
+                type="button"
+                onClick={() => changeStatus(item, "closed")}
+              >
+                Close requirement
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            disabled={item.status !== "active"}
+            onClick={() => match(item.id)}
+          >
             See matches
           </button>
         </div>
       ))}
+      {matches && <p role="status">{matches.explanation}</p>}
       {matches && (
         <div className="catalog-grid">
           {matches.items.length ? (
@@ -605,8 +749,8 @@ export function Requirements() {
               <article className="catalog-card" key={item.id}>
                 <h3>{item.title}</h3>
                 <p>
-                  {item.organization_name} · {price(item.price_per_unit)} /{" "}
-                  {item.unit}
+                  {item.organization_name} ·{" "}
+                  {price(item.matched_price_per_unit)} / {item.unit}
                 </p>
                 <p>
                   {item.direct_purchase_eligible
@@ -625,6 +769,7 @@ export function Requirements() {
 }
 
 export function ReviewQueue() {
+  const [reasons, setReasons] = useState({});
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   async function load() {
@@ -647,11 +792,15 @@ export function ReviewQueue() {
       active = false;
     };
   }, []);
-  async function review(id, decision) {
+  async function review(item, decision) {
     try {
-      await api(`/platform/listings/${id}/review`, {
+      await api(`/platform/listings/${item.id}/review`, {
         method: "POST",
-        body: JSON.stringify({ decision }),
+        body: JSON.stringify({
+          decision,
+          reason: reasons[item.id] || "",
+          version: item.version,
+        }),
       });
       await load();
     } catch (err) {
@@ -671,7 +820,12 @@ export function ReviewQueue() {
       <div className="catalog-grid">
         {items.map((item) => (
           <article className="catalog-card" key={item.id}>
+            {item.is_demo && <span className="demo-badge">Demo stock</span>}
+            {item.images?.map((image) => (
+              <ListingImage image={image} key={image.id} />
+            ))}
             <h3>{item.title}</h3>
+            <PriceTiers tiers={item.price_tiers} unit={item.unit} />
             <p>
               {item.organization_name} · {item.material} · {item.quantity}{" "}
               {item.unit}
@@ -681,14 +835,27 @@ export function ReviewQueue() {
               MOQ {item.min_order_quantity} · {price(item.price_per_unit)} /{" "}
               {item.unit}
             </p>
+            <FormField
+              label="Review reason (required)"
+              value={reasons[item.id] || ""}
+              maxLength="1000"
+              onChange={(e) =>
+                setReasons({ ...reasons, [item.id]: e.target.value })
+              }
+            />
             <button
               type="button"
               className="button"
-              onClick={() => review(item.id, "published")}
+              onClick={() => review(item, "published")}
+              disabled={(reasons[item.id] || "").trim().length < 3}
             >
               Publish
             </button>
-            <button type="button" onClick={() => review(item.id, "rejected")}>
+            <button
+              type="button"
+              onClick={() => review(item, "rejected")}
+              disabled={(reasons[item.id] || "").trim().length < 3}
+            >
               Reject
             </button>
           </article>
