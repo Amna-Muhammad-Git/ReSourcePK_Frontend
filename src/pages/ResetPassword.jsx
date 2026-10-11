@@ -46,7 +46,7 @@ export default function ResetPassword() {
             error={error && error.includes("previous") ? error : undefined}
           />
           <p className="form-hint">
-            Use 10+ characters with uppercase, lowercase and a number.
+            Use 10–72 UTF-8 bytes with uppercase, lowercase and a number.
           </p>
           {Boolean(error) && (
             <div className="notice notice--error">{error}</div>

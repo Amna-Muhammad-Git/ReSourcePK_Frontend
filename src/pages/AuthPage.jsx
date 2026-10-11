@@ -212,7 +212,7 @@ export default function AuthPage({ mode }) {
           )}
           {isSignup && (
             <p className="form-hint">
-              Use 10+ characters with uppercase, lowercase and a number.
+              Use 10–72 UTF-8 bytes with uppercase, lowercase and a number.
             </p>
           )}
           {Boolean(error) && (

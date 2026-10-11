@@ -5,7 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { api, setAccessToken } from "../services/api";
+import { api, setAccessToken, refreshSession } from "../services/api";
 
 export const AuthContext = createContext();
 
@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
     try {
-      const data = await api("/auth/refresh", { method: "POST" });
+      const data = await refreshSession();
       setAccessToken(data.accessToken);
       setContext(data.context);
       return data.context;
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
   useEffect(() => {
     let active = true;
-    api("/auth/refresh", { method: "POST" })
+    refreshSession()
       .then((data) => {
         if (!active) return;
         setAccessToken(data.accessToken);
@@ -45,6 +45,12 @@ export const AuthProvider = ({ children }) => {
     return () => {
       active = false;
     };
+  }, []);
+  useEffect(() => {
+    const update = (event) => setContext(event.detail);
+    window.addEventListener("resourcepk-session-context", update);
+    return () =>
+      window.removeEventListener("resourcepk-session-context", update);
   }, []);
   const login = useCallback(async (input) => {
     const data = await api("/auth/login", {
