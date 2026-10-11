@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import AuthShell from "../components/AuthShell";
 import FormField from "../components/FormField";
 import { api } from "../services/api";
@@ -18,6 +23,13 @@ const copyByMode = {
     intro: "We will email a one-hour reset link if the account exists.",
     submit: "Send reset link",
   },
+  resend: {
+    eyebrow: "Email verification",
+    title: "Need another link?",
+    intro:
+      "We will send a fresh verification link if your account still needs one.",
+    submit: "Resend verification email",
+  },
   login: {
     eyebrow: "Welcome back",
     title: "Continue your work.",
@@ -28,24 +40,29 @@ const copyByMode = {
 
 export default function AuthPage({ mode }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [params] = useSearchParams();
   const { login } = useAuth();
   const [accountType, setAccountType] = useState("buyer");
-  const [state, setState] = useState({});
+  const [state, setState] = useState({ email: params.get("email") || "" });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
   const isSignup = mode === "signup",
-    isForgot = mode === "forgot";
+    isForgot = mode === "forgot" || mode === "resend";
   const copy = copyByMode[mode];
   async function submit(event) {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setFieldErrors({});
     try {
       const actions = {
         login: async () => {
           await login({ email: state.email, password: state.password });
-          navigate("/workspace");
+          navigate(location.state?.returnTo || "/workspace");
         },
         forgot: async () => {
           await api("/auth/forgot-password", {
@@ -53,6 +70,9 @@ export default function AuthPage({ mode }) {
             body: JSON.stringify({ email: state.email }),
           });
           setDone("If the account exists, a secure reset link is on its way.");
+        },
+        resend: async () => {
+          await resend();
         },
         signup: async () => {
           const data = await api("/auth/register", {
@@ -69,31 +89,74 @@ export default function AuthPage({ mode }) {
       await actions[mode]();
     } catch (e) {
       setError(e.message);
+      setFieldErrors(e.details || {});
+      setNeedsVerification(e.code === "EMAIL_NOT_VERIFIED");
     } finally {
       setBusy(false);
     }
   }
   const update = (e) => setState({ ...state, [e.target.name]: e.target.value });
+  async function resend() {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email: state.email }),
+      });
+      setDone(
+        "If this account still needs verification, we sent a new link. Check your inbox and spam folder.",
+      );
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <AuthShell eyebrow={copy.eyebrow} title={copy.title} intro={copy.intro}>
       {done ? (
-        <div className="notice notice--success">{done}</div>
+        <>
+          <div className="notice notice--success">{done}</div>
+          {isSignup && (
+            <button
+              type="button"
+              className="button button--wide"
+              disabled={busy}
+              onClick={resend}
+            >
+              Resend verification email
+            </button>
+          )}
+        </>
       ) : (
-        <form onSubmit={submit} className="auth-form">
+        <form
+          onSubmit={submit}
+          className="auth-form"
+          key={isSignup ? accountType : mode}
+        >
           {isSignup && (
             <fieldset className="segmented">
               <legend className="sr-only">Account type</legend>
               <button
                 type="button"
                 className={accountType === "buyer" ? "active" : ""}
-                onClick={() => setAccountType("buyer")}
+                onClick={() => {
+                  setAccountType("buyer");
+                  setState({});
+                  setFieldErrors({});
+                }}
               >
                 Buyer
               </button>
               <button
                 type="button"
                 className={accountType === "seller" ? "active" : ""}
-                onClick={() => setAccountType("seller")}
+                onClick={() => {
+                  setAccountType("seller");
+                  setState({});
+                  setFieldErrors({});
+                }}
               >
                 Seller
               </button>
@@ -107,6 +170,7 @@ export default function AuthPage({ mode }) {
               onChange={update}
               autoComplete="name"
               required
+              error={fieldErrors.fullName?.[0]}
             />
           )}
           {isSignup && accountType === "seller" && (
@@ -116,6 +180,7 @@ export default function AuthPage({ mode }) {
               value={state.organizationName || ""}
               onChange={update}
               required
+              error={fieldErrors.organizationName?.[0]}
             />
           )}
           <FormField
@@ -124,8 +189,9 @@ export default function AuthPage({ mode }) {
             type="email"
             value={state.email || ""}
             onChange={update}
-            autoComplete="email"
+            autoComplete={isSignup ? `section-${accountType} email` : "email"}
             required
+            error={fieldErrors.email?.[0]}
           />
           {!isForgot && (
             <FormField
@@ -134,9 +200,14 @@ export default function AuthPage({ mode }) {
               type="password"
               value={state.password || ""}
               onChange={update}
-              autoComplete={isSignup ? "new-password" : "current-password"}
+              autoComplete={
+                isSignup
+                  ? `section-${accountType} new-password`
+                  : "current-password"
+              }
               minLength="10"
               required
+              error={fieldErrors.password?.[0]}
             />
           )}
           {isSignup && (
@@ -148,6 +219,16 @@ export default function AuthPage({ mode }) {
             <div className="notice notice--error" role="alert">
               {error}
             </div>
+          )}
+          {needsVerification && (
+            <button
+              type="button"
+              className="text-action"
+              onClick={resend}
+              disabled={busy}
+            >
+              Resend verification email
+            </button>
           )}
           <button type="submit" className="button button--wide" disabled={busy}>
             {busy ? "Working…" : copy.submit}
@@ -169,6 +250,9 @@ export default function AuthPage({ mode }) {
           </span>
         )}
         {isForgot && <Link to="/login">Return to sign in</Link>}
+        {mode === "login" && (
+          <Link to="/resend-verification">No verification email?</Link>
+        )}
       </div>
     </AuthShell>
   );

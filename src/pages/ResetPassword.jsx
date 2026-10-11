@@ -38,10 +38,12 @@ export default function ResetPassword() {
           <FormField
             label="New password"
             type="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             minLength="10"
             required
+            error={error && error.includes("previous") ? error : undefined}
           />
           <p className="form-hint">
             Use 10+ characters with uppercase, lowercase and a number.

@@ -6,10 +6,12 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import Brand from "../components/Brand";
 import MaterialLoom from "../components/MaterialLoom";
 import { steps, valueCards } from "../content/siteContent";
+import { api } from "../services/api";
 export default function Home() {
   return (
     <div className="landing">
@@ -43,10 +45,10 @@ export default function Home() {
                 <Check /> MOQ-aware buying
               </span>
               <span>
-                <Check /> Verified organizations
+                <Check /> Verified accounts
               </span>
               <span>
-                <Check /> Traceable impact
+                <Check /> Reviewed listings
               </span>
             </div>
           </div>
@@ -54,9 +56,9 @@ export default function Home() {
         </section>
         <section className="ticker" aria-label="Platform capabilities">
           <div>
-            SELLER CONTROL <i /> POOLED DEMAND <i /> DIRECT PURCHASE <i />{" "}
-            MATERIAL PASSPORT <i /> ROLE-BASED OPERATIONS <i /> SELLER CONTROL{" "}
-            <i /> POOLED DEMAND
+            SELLER CONTROL <i /> POOLED DEMAND COMING SOON <i /> DIRECT PURCHASE
+            COMING SOON <i /> MATERIAL PASSPORT PLANNED <i /> ROLE-BASED
+            OPERATIONS <i /> SELLER CONTROL <i /> POOLED DEMAND
           </div>
         </section>
         <section className="section intro" id="how">
@@ -83,6 +85,7 @@ export default function Home() {
             </article>
           ))}
         </section>
+        <FeaturedMaterials />
         <section className="model-section" id="model">
           <div className="model-visual">
             <div className="lot lot--large">
@@ -160,5 +163,54 @@ export default function Home() {
         <span>© {new Date().getFullYear()} ReSource PK</span>
       </footer>
     </div>
+  );
+}
+
+function FeaturedMaterials() {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    let active = true;
+    api("/listings?limit=3")
+      .then((data) => {
+        if (active) setItems(data.items);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  return (
+    <section className="section featured-materials">
+      <div>
+        <p className="eyebrow">From the live exchange</p>
+        <h2>Available materials</h2>
+        <p>Verified listings appear here after review.</p>
+      </div>
+      {items.length ? (
+        <div className="catalog-grid">
+          {items.map((item) => (
+            <article className="catalog-card" key={item.id}>
+              <span className="eyebrow">{item.material}</span>
+              <h3>{item.title}</h3>
+              <p>
+                {item.organization_name} · {item.quantity} {item.unit}
+              </p>
+              <strong>
+                PKR {Number(item.price_per_unit).toLocaleString("en-PK")} /{" "}
+                {item.unit}
+              </strong>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p>
+          First listings are being reviewed. Sellers can submit material through
+          their workspace.
+        </p>
+      )}
+      <Link className="text-link" to="/signup">
+        Join the exchange →
+      </Link>
+    </section>
   );
 }

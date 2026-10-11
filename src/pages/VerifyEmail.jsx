@@ -41,6 +41,9 @@ export default function VerifyEmail() {
           Continue to sign in
         </Link>
       )}
+      {!ok && (
+        <Link to="/resend-verification">Request a new verification link</Link>
+      )}
     </AuthShell>
   );
 }

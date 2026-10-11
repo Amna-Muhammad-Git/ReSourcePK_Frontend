@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import AuthShell from "../components/AuthShell";
 import FormField from "../components/FormField";
 import { api } from "../services/api";
@@ -7,11 +7,20 @@ import { useAuth } from "../hooks/useAuth";
 export default function AcceptInvitation() {
   const [params] = useSearchParams();
   const token = params.get("token");
-  const { context, refresh } = useAuth();
+  const { context, loading, refresh, logout } = useAuth();
   const navigate = useNavigate();
   const [details, setDetails] = useState(null);
   const [state, setState] = useState({});
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const wrongAccount = Boolean(
+    context &&
+    details &&
+    context.user.email.toLowerCase() !== details.email.toLowerCase(),
+  );
+  let actionLabel = "Create account and accept";
+  if (context) actionLabel = "Accept as invited account";
+  if (busy) actionLabel = "Joining…";
   useEffect(() => {
     if (!token) return;
     let active = true;
@@ -28,6 +37,8 @@ export default function AcceptInvitation() {
   }, [token]);
   async function submit(e) {
     e.preventDefault();
+    setBusy(true);
+    setError("");
     try {
       if (context)
         await api("/invitations/accept", {
@@ -47,6 +58,8 @@ export default function AcceptInvitation() {
       navigate(context ? "/workspace" : "/login");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
   return (
@@ -59,35 +72,76 @@ export default function AcceptInvitation() {
       }
       intro={
         details
-          ? `You were invited as ${details.role.replace("_", " ")}.`
+          ? `Invitation for ${details.email} as ${details.role.replace("_", " ")}. This secure link expires after 72 hours and works once.`
           : "Secure invitation details are loading."
       }
     >
-      <form className="auth-form" onSubmit={submit}>
-        {!context && Boolean(details) && (
-          <>
-            <FormField
-              label="Full name"
-              value={state.fullName || ""}
-              onChange={(e) => setState({ ...state, fullName: e.target.value })}
-              required
-            />
-            <FormField
-              label="Create password"
-              type="password"
-              value={state.password || ""}
-              onChange={(e) => setState({ ...state, password: e.target.value })}
-              minLength="10"
-              required
-            />
-          </>
-        )}
-        {Boolean(error) && <div className="notice notice--error">{error}</div>}
-        {Boolean(details) && (
-          <button type="submit" className="button button--wide">
-            Accept invitation
+      {wrongAccount && (
+        <div className="notice notice--error" role="alert">
+          You are signed in as {context.user.email}. This invitation belongs to{" "}
+          {details.email}.
+          <button
+            type="button"
+            className="text-action"
+            onClick={() => logout()}
+          >
+            Sign out to use the invited account
           </button>
-        )}
+        </div>
+      )}
+      {!loading && details?.account_exists && !context && (
+        <p>
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            state={{
+              returnTo: `/accept-invitation?token=${encodeURIComponent(token)}`,
+            }}
+          >
+            Sign in as {details.email} to accept.
+          </Link>
+        </p>
+      )}
+      <form className="auth-form" onSubmit={submit}>
+        {!loading &&
+          !context &&
+          Boolean(details) &&
+          !details.account_exists && (
+            <>
+              <FormField
+                label="Full name"
+                value={state.fullName || ""}
+                onChange={(e) =>
+                  setState({ ...state, fullName: e.target.value })
+                }
+                required
+              />
+              <FormField
+                label="Create password"
+                type="password"
+                autoComplete="new-password"
+                value={state.password || ""}
+                onChange={(e) =>
+                  setState({ ...state, password: e.target.value })
+                }
+                minLength="10"
+                required
+              />
+            </>
+          )}
+        {Boolean(error) && <div className="notice notice--error">{error}</div>}
+        {Boolean(details) &&
+          !loading &&
+          !wrongAccount &&
+          (context || !details.account_exists) && (
+            <button
+              type="submit"
+              className="button button--wide"
+              disabled={busy}
+            >
+              {actionLabel}
+            </button>
+          )}
       </form>
     </AuthShell>
   );

@@ -17,6 +17,10 @@ export default function App() {
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/signup" element={<AuthPage mode="signup" />} />
           <Route path="/forgot-password" element={<AuthPage mode="forgot" />} />
+          <Route
+            path="/resend-verification"
+            element={<AuthPage mode="resend" />}
+          />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/accept-invitation" element={<AcceptInvitation />} />

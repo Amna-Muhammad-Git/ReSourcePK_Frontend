@@ -45,4 +45,8 @@ This file records durable decisions so team members and coding assistants do not
 
 ## Change protocol
 
+### 11 October 2026 — main consolidation
+
+The onboarding/catalog patch is consolidated for a clean `main` clone. Use `local-preview-guide.md` for both repos, credentials and feature checks; do not reapply the earlier patch. Backend legacy signup reconciliation is documented in its `docs/merge-reconciliation.md`. Live acceptance gates remain open; this merge does not mark all Phase 2 tasks complete.
+
 Add a dated row describing what changed, why, affected requirements and migration consequence. Major architecture, security, data, provider or scope changes require an ADR and updates to PRD/SRS/tasks in the same pull request.

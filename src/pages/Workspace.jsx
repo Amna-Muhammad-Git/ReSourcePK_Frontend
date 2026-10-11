@@ -17,6 +17,12 @@ import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import Brand from "../components/Brand";
 import { api } from "../services/api";
+import {
+  Discovery,
+  Requirements,
+  ReviewQueue,
+  SellerListings,
+} from "../components/Catalog";
 
 const roleConfig = {
   buyer: {
@@ -25,6 +31,7 @@ const roleConfig = {
     nav: [
       [LayoutDashboard, "Overview"],
       [PackageSearch, "Discover materials"],
+      [PackageSearch, "Requirements"],
       [Boxes, "My purchases"],
       [BarChart3, "Impact"],
     ],
@@ -64,13 +71,15 @@ function defaultWorkspace(context) {
   return "buyer";
 }
 export default function Workspace() {
-  const { context, logout } = useAuth();
+  const { context, logout, refresh } = useAuth();
   const [menu, setMenu] = useState(false);
   const [active, setActive] = useState("Overview");
   const defaultKind = defaultWorkspace(context);
   const [kind, setKind] = useState(defaultKind);
   const availableKinds = [
-    "buyer",
+    ...(!context.memberships.length && !context.platformRoles.length
+      ? ["buyer"]
+      : []),
     ...(context.memberships.length ? ["organization"] : []),
     ...(context.platformRoles.length ? ["platform"] : []),
   ];
@@ -93,20 +102,24 @@ export default function Workspace() {
           <config.icon />
           <span>
             <small>Current view</small>
-            <select
-              value={kind}
-              onChange={(event) => {
-                setKind(event.target.value);
-                setActive("Overview");
-              }}
-              aria-label="Switch workspace"
-            >
-              {availableKinds.map((value) => (
-                <option value={value} key={value}>
-                  {roleConfig[value].label}
-                </option>
-              ))}
-            </select>
+            {availableKinds.length > 1 ? (
+              <select
+                value={kind}
+                onChange={(event) => {
+                  setKind(event.target.value);
+                  setActive("Overview");
+                }}
+                aria-label="Switch workspace"
+              >
+                {availableKinds.map((value) => (
+                  <option value={value} key={value}>
+                    {roleConfig[value].label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <strong>{config.label}</strong>
+            )}
           </span>
           <ChevronDown />
         </div>
@@ -157,6 +170,29 @@ export default function Workspace() {
           </div>
         </header>
         <section className="workspace-body">
+          {context.memberships.length > 0 && !context.platformRoles.length && (
+            <button
+              type="button"
+              className="workspace-switch"
+              onClick={() => {
+                setKind(kind === "buyer" ? "organization" : "buyer");
+                setActive("Overview");
+              }}
+            >
+              {kind === "buyer"
+                ? "Back to seller workspace"
+                : "Buy materials with this account"}
+            </button>
+          )}
+          {!context.memberships.length && !context.platformRoles.length && (
+            <StartSelling
+              onCreated={async () => {
+                await refresh();
+                setKind("organization");
+                setActive("Overview");
+              }}
+            />
+          )}
           <div className="welcome">
             <div>
               <p className="eyebrow">Foundation ready</p>
@@ -177,26 +213,11 @@ export default function Workspace() {
               unit={kind === "platform" ? "" : "PKR"}
             />
           </div>
-          {active === "Team & access" && kind === "organization" ? (
-            <TeamAccess membership={context.memberships[0]} />
-          ) : (
-            <div className="empty-panel">
-              <div className="empty-art">
-                <i />
-                <i />
-                <i />
-              </div>
-              <div>
-                <p className="eyebrow">Live data only</p>
-                <h3>Your activity will build this view.</h3>
-                <p>
-                  No fabricated numbers are shown. Date filters, charts and
-                  downloadable reports will populate from completed marketplace
-                  events in the analytics phase.
-                </p>
-              </div>
-            </div>
-          )}
+          <WorkspaceContent
+            active={active}
+            kind={kind}
+            membership={context.memberships[0]}
+          />
         </section>
       </main>
       {menu && (
@@ -206,6 +227,92 @@ export default function Workspace() {
           aria-label="Close navigation"
         />
       )}
+    </div>
+  );
+}
+function StartSelling({ onCreated }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await api("/organizations", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      await onCreated();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="start-selling">
+      <button
+        type="button"
+        className="workspace-switch"
+        onClick={() => setOpen(!open)}
+      >
+        Start selling with this account
+      </button>
+      {open && (
+        <form onSubmit={submit}>
+          <p>
+            Keep this email and password. Create your seller organization and
+            become its Owner.
+          </p>
+          <label className="field">
+            <span>Organization name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              minLength="2"
+              maxLength="180"
+            />
+          </label>
+          {error && (
+            <p className="notice notice--error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="button" type="submit" disabled={busy}>
+            {busy ? "Creating…" : "Create seller organization"}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+function WorkspaceContent({ active, kind, membership }) {
+  if (active === "Team & access" && kind === "organization")
+    return <TeamAccess membership={membership} />;
+  if (active === "Listings" && kind === "organization")
+    return <SellerListings membership={membership} />;
+  if (active === "Discover materials" && kind === "buyer") return <Discovery />;
+  if (active === "Requirements" && kind === "buyer") return <Requirements />;
+  if (active === "Review queue" && kind === "platform") return <ReviewQueue />;
+  return (
+    <div className="empty-panel">
+      <div className="empty-art">
+        <i />
+        <i />
+        <i />
+      </div>
+      <div>
+        <p className="eyebrow">Live data only</p>
+        <h3>Your activity will build this view.</h3>
+        <p>
+          No fabricated numbers are shown. Date filters, charts and downloadable
+          reports will populate from completed marketplace events in the
+          analytics phase.
+        </p>
+      </div>
     </div>
   );
 }
@@ -227,12 +334,10 @@ function TeamAccess({ membership }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const mayInvite =
-    ["owner", "org_admin"].includes(membership.role) ||
+    membership.role === "owner" ||
     (membership.role === "manager" && membership.can_invite_staff);
   const roles =
-    membership.role === "manager"
-      ? ["staff"]
-      : ["org_admin", "manager", "staff"];
+    membership.role === "manager" ? ["staff"] : ["manager", "staff"];
   if (!mayInvite)
     return (
       <section className="team-panel">
@@ -241,7 +346,7 @@ function TeamAccess({ membership }) {
           <h3>Team access is managed by your organization.</h3>
           <p>
             Your current role cannot issue invitations. An Owner or Organization
-            Admin can update team access.
+            Owner can update team access.
           </p>
         </div>
       </section>
@@ -275,8 +380,10 @@ function TeamAccess({ membership }) {
         <p className="eyebrow">Controlled delegation</p>
         <h3>Invite a teammate</h3>
         <p>
-          Invitations are email-bound, single-use and expire after 72 hours.
-          Managers can invite Staff only when the Owner grants that permission.
+          Invitations are email-bound, single-use and expire after 72 hours. The
+          Owner manages the organization, delegates operations to a Manager, and
+          may invite Staff directly. Managers can invite Staff only when the
+          Owner grants that permission.
         </p>
       </div>
       <form onSubmit={submit}>
@@ -284,6 +391,9 @@ function TeamAccess({ membership }) {
           <span>Work email</span>
           <input
             type="email"
+            name="inviteeEmail"
+            autoComplete="off"
+            placeholder="teammate@company.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
