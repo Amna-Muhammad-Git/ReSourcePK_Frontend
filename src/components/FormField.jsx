@@ -17,6 +17,7 @@ export default function FormField({ label, error, type, ...props }) {
         <input
           id={id}
           aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
           type={password && visible ? "text" : type}
           {...props}
         />
@@ -37,7 +38,7 @@ export default function FormField({ label, error, type, ...props }) {
         )}
       </span>
       {Boolean(error) && (
-        <small className="field-error" role="alert">
+        <small id={`${id}-error`} className="field-error" role="alert">
           {error}
         </small>
       )}

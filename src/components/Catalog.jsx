@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, downloadFile } from "../services/api";
 import FormField from "./FormField";
+import { Link } from "react-router-dom";
+import useCollection from "../hooks/useCollection";
+import { CollectionStatus, Pagination } from "./CollectionStatus";
+import { formatCurrency as price } from "../utils/formatters";
 import {
   ListingImage,
   ListingImagesEditor,
@@ -23,17 +27,18 @@ const emptyListing = {
   priceTiers: [],
 };
 const units = ["kg", "meter", "roll", "piece"];
-const price = (value) => `PKR ${Number(value).toLocaleString("en-PK")}`;
 
 export function Discovery() {
   const [filters, setFilters] = useState({
     q: "",
     material: "",
+    unit: "",
     sort: "newest",
   });
   const [search, setSearch] = useState({
     q: "",
     material: "",
+    unit: "",
     sort: "newest",
     page: 1,
   });
@@ -45,9 +50,11 @@ export function Discovery() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     let active = true;
-    api(`/listings?${new URLSearchParams(search)}`)
+    const query = Object.entries(search).filter(([, value]) => value !== "");
+    api(`/listings?${new URLSearchParams(query)}`)
       .then((data) => {
         if (active) {
           setResult(data);
@@ -63,7 +70,7 @@ export function Discovery() {
     return () => {
       active = false;
     };
-  }, [search]);
+  }, [search, revision]);
   return (
     <section className="catalog-panel">
       <p className="eyebrow">Live exchange</p>
@@ -89,6 +96,18 @@ export function Discovery() {
           onChange={(e) => setFilters({ ...filters, material: e.target.value })}
         />
         <label className="field">
+          <span>Unit</span>
+          <select
+            value={filters.unit}
+            onChange={(e) => setFilters({ ...filters, unit: e.target.value })}
+          >
+            <option value="">All units</option>
+            {units.map((unit) => (
+              <option key={unit}>{unit}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
           <span>Sort</span>
           <select
             value={filters.sort}
@@ -104,53 +123,74 @@ export function Discovery() {
         </button>
       </form>
       {error && (
-        <p role="alert" className="notice notice--error">
-          {error}
-        </p>
+        <div role="alert" className="notice notice--error">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              setRevision((value) => value + 1);
+            }}
+          >
+            Try again
+          </button>
+        </div>
       )}
-      {loading && <p role="status">Loading materials…</p>}
+      {loading && (
+        <output className="collection-status">Loading materials…</output>
+      )}
       {!loading && !error && !result.items.length && (
         <p>No published materials match yet. Try a broader search.</p>
       )}
       <div className="catalog-grid">
-        {result.items.map((item) => (
-          <article className="catalog-card" key={item.id}>
-            {item.is_demo && <span className="demo-badge">Demo stock</span>}
-            {item.images?.[0] && <ListingImage image={item.images[0]} />}
-            <span className="eyebrow">
-              {item.material} · {item.condition}
-            </span>
-            <h3>{item.title}</h3>
-            <p>{item.organization_name}</p>
-            <p>
-              {Number(item.quantity).toLocaleString()} {item.unit} available ·
-              MOQ {Number(item.min_order_quantity).toLocaleString()} {item.unit}
-            </p>
-            <strong>
-              {price(item.price_per_unit)} / {item.unit}
-            </strong>
-            <details>
-              <summary>See details</summary>
-              <p>{item.description}</p>
+        {!loading &&
+          !error &&
+          result.items.map((item) => (
+            <article className="catalog-card" key={item.id}>
+              {item.is_demo && <span className="demo-badge">Demo stock</span>}
+              {item.images?.[0] && <ListingImage image={item.images[0]} />}
+              <span className="eyebrow">
+                {item.material} · {item.condition}
+              </span>
+              <h3>{item.title}</h3>
+              <Link
+                className="text-action"
+                to={`/marketplace/listings/${item.id}`}
+                aria-label={`View ${item.title}`}
+              >
+                View listing
+              </Link>
+              <p>{item.organization_name}</p>
               <p>
-                {[item.color, item.composition, item.location]
-                  .filter(Boolean)
-                  .join(" · ")}
+                {Number(item.quantity).toLocaleString()} {item.unit} available ·
+                MOQ {Number(item.min_order_quantity).toLocaleString()}{" "}
+                {item.unit}
               </p>
-              <PriceTiers tiers={item.price_tiers} unit={item.unit} />
-              <p>
-                Direct purchasing opens in the commerce phase. Below MOQ? Group
-                buying will be available there.
-              </p>
-            </details>
-          </article>
-        ))}
+              <strong>
+                {price(item.price_per_unit)} / {item.unit}
+              </strong>
+              <details>
+                <summary>See details</summary>
+                <p>{item.description}</p>
+                <p>
+                  {[item.color, item.composition, item.location]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <PriceTiers tiers={item.price_tiers} unit={item.unit} />
+                <p>
+                  Direct purchasing opens in the commerce phase. Below MOQ?
+                  Group buying will be available there.
+                </p>
+              </details>
+            </article>
+          ))}
       </div>
       {result.total > result.limit && (
         <div className="pagination">
           <button
             type="button"
-            disabled={search.page === 1}
+            disabled={loading || search.page === 1}
             onClick={() => {
               setLoading(true);
               setSearch({ ...search, page: search.page - 1 });
@@ -163,7 +203,7 @@ export function Discovery() {
           </span>
           <button
             type="button"
-            disabled={search.page * result.limit >= result.total}
+            disabled={loading || search.page * result.limit >= result.total}
             onClick={() => {
               setLoading(true);
               setSearch({ ...search, page: search.page + 1 });
@@ -179,7 +219,6 @@ export function Discovery() {
 
 export function SellerListings({ membership }) {
   const [input, setInput] = useState(emptyListing);
-  const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -193,26 +232,9 @@ export function SellerListings({ membership }) {
   if (busy) saveLabel = "Saving…";
   const canEdit = ["owner", "manager"].includes(membership.role);
   const url = `/organizations/${membership.organization_id}/listings`;
-  async function load() {
-    try {
-      setItems(await api(url));
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-  useEffect(() => {
-    let active = true;
-    api(url)
-      .then((data) => {
-        if (active) setItems(data);
-      })
-      .catch((err) => {
-        if (active) setError(err.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, [url]);
+  const collection = useCollection(url);
+  const { items } = collection;
+  const load = collection.reload;
   async function create(e) {
     e.preventDefault();
     setBusy(true);
@@ -221,9 +243,14 @@ export function SellerListings({ membership }) {
     try {
       await api(editingId ? `${url}/${editingId}` : url, {
         method: editingId ? "PUT" : "POST",
-        body: JSON.stringify(
-          editingId ? { ...input, version: editingVersion } : input,
-        ),
+        body: JSON.stringify({
+          ...input,
+          priceTiers: input.priceTiers.map(({ minQuantity, pricePerUnit }) => ({
+            minQuantity,
+            pricePerUnit,
+          })),
+          ...(editingId ? { version: editingVersion } : {}),
+        }),
       });
       setInput(emptyListing);
       setEditingId(null);
@@ -242,6 +269,8 @@ export function SellerListings({ membership }) {
     }
   }
   async function submit(item) {
+    setBusy(true);
+    setError("");
     try {
       await api(`${url}/${item.id}/submit`, {
         method: "POST",
@@ -250,6 +279,8 @@ export function SellerListings({ membership }) {
       await load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
   async function archive(item) {
@@ -283,6 +314,7 @@ export function SellerListings({ membership }) {
       composition: item.composition,
       location: item.location,
       priceTiers: (item.price_tiers || []).map((tier) => ({
+        rowId: crypto.randomUUID(),
         minQuantity: tier.minQuantity,
         pricePerUnit: tier.pricePerUnit,
       })),
@@ -529,58 +561,68 @@ export function SellerListings({ membership }) {
           {error}
         </p>
       )}
-      {message && <p className="notice notice--success">{message}</p>}
-      {!items.length && <p>No listings yet.</p>}
+      {message && <output className="notice notice--success">{message}</output>}
+      <CollectionStatus
+        collection={collection}
+        emptyMessage="No listings yet."
+      />
       <div className="catalog-grid">
-        {items.map((item) => (
-          <article className="catalog-card" key={item.id}>
-            <span className="eyebrow">{item.status.replace("_", " ")}</span>
-            {item.is_demo && <span className="demo-badge">Demo stock</span>}
-            {item.images?.[0] && <ListingImage image={item.images[0]} />}
-            <h3>{item.title}</h3>
-            <PriceTiers tiers={item.price_tiers} unit={item.unit} />
-            {item.review_reason && <p>Review note: {item.review_reason}</p>}
-            <p>
-              {item.material} · {item.quantity} {item.unit}
-            </p>
-            <strong>
-              {price(item.price_per_unit)} / {item.unit}
-            </strong>
-            {canEdit && ["draft", "rejected"].includes(item.status) && (
-              <>
-                <ListingImagesEditor listing={item} url={url} onSaved={load} />
-                <button type="button" onClick={() => edit(item)}>
-                  Edit draft
-                </button>
-                <button
-                  type="button"
-                  className="button"
-                  onClick={() => submit(item)}
-                  disabled={busy}
-                >
-                  Submit for review
-                </button>
-              </>
-            )}
-            {canEdit && item.status !== "archived" && (
-              <details>
-                <summary>Archive this listing</summary>
-                <p>
-                  Archiving removes this stock from discovery and matching. Keep
-                  the record for audit; it cannot be republished.
-                </p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => archive(item)}
-                >
-                  Confirm archive
-                </button>
-              </details>
-            )}
-          </article>
-        ))}
+        {!collection.loading &&
+          !collection.error &&
+          items.map((item) => (
+            <article className="catalog-card" key={item.id}>
+              <span className="eyebrow">{item.status.replace("_", " ")}</span>
+              {item.is_demo && <span className="demo-badge">Demo stock</span>}
+              {item.images?.[0] && <ListingImage image={item.images[0]} />}
+              <h3>{item.title}</h3>
+              <PriceTiers tiers={item.price_tiers} unit={item.unit} />
+              {item.review_reason && <p>Review note: {item.review_reason}</p>}
+              <p>
+                {item.material} · {item.quantity} {item.unit}
+              </p>
+              <strong>
+                {price(item.price_per_unit)} / {item.unit}
+              </strong>
+              {canEdit && ["draft", "rejected"].includes(item.status) && (
+                <>
+                  <ListingImagesEditor
+                    listing={item}
+                    url={url}
+                    onSaved={load}
+                  />
+                  <button type="button" onClick={() => edit(item)}>
+                    Edit draft
+                  </button>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => submit(item)}
+                    disabled={busy}
+                  >
+                    Submit for review
+                  </button>
+                </>
+              )}
+              {canEdit && item.status !== "archived" && (
+                <details>
+                  <summary>Archive this listing</summary>
+                  <p>
+                    Archiving removes this stock from discovery and matching.
+                    Keep the record for audit; it cannot be republished.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => archive(item)}
+                  >
+                    Confirm archive
+                  </button>
+                </details>
+              )}
+            </article>
+          ))}
       </div>
+      <Pagination collection={collection} />
     </section>
   );
 }
@@ -592,24 +634,14 @@ export function Requirements() {
     unit: "kg",
     maxPricePerUnit: "",
   });
-  const [items, setItems] = useState([]);
+  const collection = useCollection("/requirements");
+  const { items } = collection;
+  const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState(null);
   const [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    api("/requirements")
-      .then((data) => {
-        if (active) setItems(data);
-      })
-      .catch((err) => {
-        if (active) setError(err.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
   async function create(e) {
     e.preventDefault();
+    setBusy(true);
     setError("");
     try {
       const payload = { ...input };
@@ -620,7 +652,7 @@ export function Requirements() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      setItems(await api("/requirements"));
+      collection.reload();
       setInput({
         material: "",
         minQuantity: "",
@@ -629,26 +661,36 @@ export function Requirements() {
       });
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
   async function match(id) {
+    setMatches(null);
+    setError("");
+    setBusy(true);
     try {
       setMatches(await api(`/requirements/${id}/matches`));
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
   async function changeStatus(item, status) {
     setError("");
+    setBusy(true);
     try {
       await api(`/requirements/${item.id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status, version: item.version }),
       });
-      setItems(await api("/requirements"));
+      collection.reload();
       setMatches(null);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
   return (
@@ -696,8 +738,8 @@ export function Requirements() {
             setInput({ ...input, maxPricePerUnit: e.target.value })
           }
         />
-        <button className="button" type="submit">
-          Save requirement
+        <button className="button" type="submit" disabled={busy}>
+          {busy ? "Working…" : "Save requirement"}
         </button>
       </form>
       {error && (
@@ -705,49 +747,70 @@ export function Requirements() {
           {error}
         </p>
       )}
-      {items.map((item) => (
-        <div className="requirement-row" key={item.id}>
-          <strong>
-            {item.material} · {item.min_quantity} {item.unit}
-          </strong>
-          <span>{item.status}</span>
-          {item.status !== "closed" && (
-            <>
-              <button
-                type="button"
-                onClick={() =>
-                  changeStatus(
-                    item,
-                    item.status === "active" ? "paused" : "active",
-                  )
-                }
-              >
-                {item.status === "active" ? "Pause" : "Resume"}
-              </button>
-              <button
-                type="button"
-                onClick={() => changeStatus(item, "closed")}
-              >
-                Close requirement
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            disabled={item.status !== "active"}
-            onClick={() => match(item.id)}
-          >
-            See matches
-          </button>
-        </div>
-      ))}
-      {matches && <p role="status">{matches.explanation}</p>}
+      <CollectionStatus
+        collection={collection}
+        emptyMessage="No requirements yet."
+      />
+      {!collection.loading &&
+        !collection.error &&
+        items.map((item) => (
+          <div className="requirement-row" key={item.id}>
+            <strong>
+              {item.material} · {item.min_quantity} {item.unit}
+            </strong>
+            <span>{item.status}</span>
+            {item.status !== "closed" && (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    changeStatus(
+                      item,
+                      item.status === "active" ? "paused" : "active",
+                    )
+                  }
+                >
+                  {item.status === "active" ? "Pause" : "Resume"}
+                </button>
+                <details>
+                  <summary>Close requirement</summary>
+                  <p>Closing stops matching and cannot be undone.</p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => changeStatus(item, "closed")}
+                  >
+                    Confirm close
+                  </button>
+                </details>
+              </>
+            )}
+            <button
+              type="button"
+              disabled={busy || item.status !== "active"}
+              onClick={() => match(item.id)}
+            >
+              See matches
+            </button>
+          </div>
+        ))}
+      <Pagination collection={collection} />
+      {matches && (
+        <output className="collection-status">{matches.explanation}</output>
+      )}
       {matches && (
         <div className="catalog-grid">
           {matches.items.length ? (
             matches.items.map((item) => (
               <article className="catalog-card" key={item.id}>
                 <h3>{item.title}</h3>
+                <Link
+                  className="text-action"
+                  to={`/marketplace/listings/${item.id}`}
+                >
+                  View listing
+                </Link>
                 <p>
                   {item.organization_name} ·{" "}
                   {price(item.matched_price_per_unit)} / {item.unit}
@@ -770,29 +833,13 @@ export function Requirements() {
 
 export function ReviewQueue() {
   const [reasons, setReasons] = useState({});
-  const [items, setItems] = useState([]);
+  const collection = useCollection("/platform/listings/pending");
+  const { items } = collection;
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  async function load() {
-    try {
-      setItems(await api("/platform/listings/pending"));
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-  useEffect(() => {
-    let active = true;
-    api("/platform/listings/pending")
-      .then((data) => {
-        if (active) setItems(data);
-      })
-      .catch((err) => {
-        if (active) setError(err.message);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
   async function review(item, decision) {
+    setBusy(true);
+    setError("");
     try {
       await api(`/platform/listings/${item.id}/review`, {
         method: "POST",
@@ -802,9 +849,11 @@ export function ReviewQueue() {
           version: item.version,
         }),
       });
-      await load();
+      collection.reload();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
   return (
@@ -816,51 +865,57 @@ export function ReviewQueue() {
           {error}
         </p>
       )}
-      {!items.length && !error && <p>No listings awaiting review.</p>}
+      <CollectionStatus
+        collection={collection}
+        emptyMessage="No listings awaiting review."
+      />
       <div className="catalog-grid">
-        {items.map((item) => (
-          <article className="catalog-card" key={item.id}>
-            {item.is_demo && <span className="demo-badge">Demo stock</span>}
-            {item.images?.map((image) => (
-              <ListingImage image={image} key={image.id} />
-            ))}
-            <h3>{item.title}</h3>
-            <PriceTiers tiers={item.price_tiers} unit={item.unit} />
-            <p>
-              {item.organization_name} · {item.material} · {item.quantity}{" "}
-              {item.unit}
-            </p>
-            <p>{item.description}</p>
-            <p>
-              MOQ {item.min_order_quantity} · {price(item.price_per_unit)} /{" "}
-              {item.unit}
-            </p>
-            <FormField
-              label="Review reason (required)"
-              value={reasons[item.id] || ""}
-              maxLength="1000"
-              onChange={(e) =>
-                setReasons({ ...reasons, [item.id]: e.target.value })
-              }
-            />
-            <button
-              type="button"
-              className="button"
-              onClick={() => review(item, "published")}
-              disabled={(reasons[item.id] || "").trim().length < 3}
-            >
-              Publish
-            </button>
-            <button
-              type="button"
-              onClick={() => review(item, "rejected")}
-              disabled={(reasons[item.id] || "").trim().length < 3}
-            >
-              Reject
-            </button>
-          </article>
-        ))}
+        {!collection.loading &&
+          !collection.error &&
+          items.map((item) => (
+            <article className="catalog-card" key={item.id}>
+              {item.is_demo && <span className="demo-badge">Demo stock</span>}
+              {item.images?.map((image) => (
+                <ListingImage image={image} key={image.id} />
+              ))}
+              <h3>{item.title}</h3>
+              <PriceTiers tiers={item.price_tiers} unit={item.unit} />
+              <p>
+                {item.organization_name} · {item.material} · {item.quantity}{" "}
+                {item.unit}
+              </p>
+              <p>{item.description}</p>
+              <p>
+                MOQ {item.min_order_quantity} · {price(item.price_per_unit)} /{" "}
+                {item.unit}
+              </p>
+              <FormField
+                label={`Review reason for ${item.title} (required)`}
+                value={reasons[item.id] || ""}
+                maxLength="1000"
+                onChange={(e) =>
+                  setReasons({ ...reasons, [item.id]: e.target.value })
+                }
+              />
+              <button
+                type="button"
+                className="button"
+                onClick={() => review(item, "published")}
+                disabled={busy || (reasons[item.id] || "").trim().length < 3}
+              >
+                Publish
+              </button>
+              <button
+                type="button"
+                onClick={() => review(item, "rejected")}
+                disabled={busy || (reasons[item.id] || "").trim().length < 3}
+              >
+                Reject
+              </button>
+            </article>
+          ))}
       </div>
+      <Pagination collection={collection} />
     </section>
   );
 }

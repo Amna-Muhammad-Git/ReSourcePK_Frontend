@@ -19,9 +19,12 @@ export default function Header() {
         className={open ? "nav nav--open" : "nav"}
         aria-label="Main navigation"
       >
-        <a href="#how">How it works</a>
-        <a href="#model">Purchase models</a>
-        <a href="#trust">Trust</a>
+        <Link to="/marketplace" onClick={() => setOpen(false)}>
+          Browse materials
+        </Link>
+        <a href="/#how">How it works</a>
+        <a href="/#model">Purchase models</a>
+        <a href="/#trust">Trust</a>
         <Link to="/login">Sign in</Link>
         <Link className="button button--small" to="/signup">
           Enter marketplace <span>↗</span>

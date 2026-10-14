@@ -13,10 +13,18 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Brand from "../components/Brand";
 import { api } from "../services/api";
+import useNavigationDrawer from "../hooks/useNavigationDrawer";
 import {
   Discovery,
   Requirements,
@@ -65,86 +73,183 @@ const metricLabels = {
   organization: ["Published listings", "Open orders", "Recovered value"],
   platform: ["Active organizations", "Pending reviews", "Verified users"],
 };
+function WorkspaceSidebar({
+  context,
+  config,
+  kind,
+  membership,
+  basePath,
+  active,
+  menu,
+  setMenu,
+  wide,
+  drawerRef,
+  navigate,
+  logout,
+}) {
+  const availableKinds = [
+    "buyer",
+    ...(context.memberships.length ? ["organization"] : []),
+    ...(context.platformRoles.length ? ["platform"] : []),
+  ];
+  return (
+    <aside
+      ref={drawerRef}
+      className={menu ? "workspace-nav open" : "workspace-nav"}
+      aria-label="Workspace navigation"
+      role={!wide && menu ? "dialog" : undefined}
+      aria-modal={!wide && menu ? true : undefined}
+      aria-hidden={!wide && !menu ? true : undefined}
+      inert={!wide && !menu ? "" : undefined}
+    >
+      <div className="workspace-brand">
+        <Brand />
+        <button onClick={() => setMenu(false)} aria-label="Close navigation">
+          <X />
+        </button>
+      </div>
+      <div className="workspace-kind">
+        <config.icon />
+        <span>
+          <small>Current view</small>
+          {availableKinds.length > 1 ? (
+            <select
+              value={kind}
+              onChange={(event) => {
+                navigate(
+                  workspacePath(
+                    event.target.value,
+                    membership || context.memberships[0],
+                  ),
+                );
+                setMenu(false);
+              }}
+              aria-label="Switch workspace"
+            >
+              {availableKinds.map((value) => (
+                <option value={value} key={value}>
+                  {roleConfig[value].label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <strong>{config.label}</strong>
+          )}
+        </span>
+        <ChevronDown />
+      </div>
+      {kind === "organization" && context.memberships.length > 1 && (
+        <label className="organization-switcher">
+          Organization
+          <select
+            aria-label="Switch organization"
+            value={membership.slug}
+            onChange={(event) => {
+              navigate(`/org/${event.target.value}/${sectionPath(active)}`);
+              setMenu(false);
+            }}
+          >
+            {context.memberships.map((item) => (
+              <option key={item.organization_id} value={item.slug}>
+                {item.organization_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <nav aria-label="Workspace sections">
+        {config.nav.map(([Icon, label]) => (
+          <Link
+            key={label}
+            className={active === label ? "active" : ""}
+            to={`${basePath}/${sectionPath(label)}`}
+            aria-current={active === label ? "page" : undefined}
+            onClick={() => {
+              setMenu(false);
+            }}
+          >
+            <Icon />
+            {label}
+          </Link>
+        ))}
+      </nav>
+      <button className="logout" onClick={logout}>
+        <LogOut /> Sign out
+      </button>
+    </aside>
+  );
+}
 function defaultWorkspace(context) {
   if (context.platformRoles.length) return "platform";
   if (context.memberships.length) return "organization";
   return "buyer";
 }
-export default function Workspace() {
+function sectionPath(label) {
+  return label.toLowerCase().replaceAll(" & ", "-").replaceAll(" ", "-");
+}
+function workspacePath(kind, membership) {
+  if (kind === "organization")
+    return membership ? `/org/${membership.slug}` : "/buyer";
+  return kind === "platform" ? "/admin" : "/buyer";
+}
+export function WorkspaceEntry() {
+  const { context } = useAuth();
+  return (
+    <Navigate
+      replace
+      to={workspacePath(defaultWorkspace(context), context.memberships[0])}
+    />
+  );
+}
+export default function Workspace({ kind }) {
   const { context, logout, refresh } = useAuth();
+  const { orgSlug } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [menu, setMenu] = useState(false);
-  const [active, setActive] = useState("Overview");
-  const defaultKind = defaultWorkspace(context);
-  const [kind, setKind] = useState(defaultKind);
-  const availableKinds = [
-    ...(!context.memberships.length && !context.platformRoles.length
-      ? ["buyer"]
-      : []),
-    ...(context.memberships.length ? ["organization"] : []),
-    ...(context.platformRoles.length ? ["platform"] : []),
-  ];
+  const closeMenu = useCallback(() => setMenu(false), []);
+  const { drawerRef, triggerRef, wide } = useNavigationDrawer(menu, closeMenu);
+  const membership = context.memberships.find((item) => item.slug === orgSlug);
   const config = roleConfig[kind];
+  const basePath = workspacePath(kind, membership || context.memberships[0]);
+  const active =
+    config.nav.find(
+      ([, label]) => location.pathname === `${basePath}/${sectionPath(label)}`,
+    )?.[1] || "Overview";
   const [primaryMetric, secondaryMetric, valueMetric] = metricLabels[kind];
   const role =
-    kind === "organization"
-      ? context.memberships[0].role.replace("_", " ")
-      : kind;
+    kind === "organization" ? membership?.role.replace("_", " ") : kind;
+  if (
+    (kind === "organization" && !membership) ||
+    (kind === "platform" && !context.platformRoles.length)
+  )
+    return (
+      <main className="marketplace-page">
+        <h1>Workspace unavailable</h1>
+        <p>This account does not have access to that workspace.</p>
+        <Link to="/buyer">Open buyer workspace</Link>
+      </main>
+    );
   return (
     <div className="workspace">
-      <aside className={menu ? "workspace-nav open" : "workspace-nav"}>
-        <div className="workspace-brand">
-          <Brand />
-          <button onClick={() => setMenu(false)} aria-label="Close navigation">
-            <X />
-          </button>
-        </div>
-        <div className="workspace-kind">
-          <config.icon />
-          <span>
-            <small>Current view</small>
-            {availableKinds.length > 1 ? (
-              <select
-                value={kind}
-                onChange={(event) => {
-                  setKind(event.target.value);
-                  setActive("Overview");
-                }}
-                aria-label="Switch workspace"
-              >
-                {availableKinds.map((value) => (
-                  <option value={value} key={value}>
-                    {roleConfig[value].label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <strong>{config.label}</strong>
-            )}
-          </span>
-          <ChevronDown />
-        </div>
-        <nav>
-          {config.nav.map(([Icon, label]) => (
-            <button
-              key={label}
-              className={active === label ? "active" : ""}
-              onClick={() => {
-                setActive(label);
-                setMenu(false);
-              }}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
-        </nav>
-        <button className="logout" onClick={logout}>
-          <LogOut /> Sign out
-        </button>
-      </aside>
+      <WorkspaceSidebar
+        context={context}
+        config={config}
+        kind={kind}
+        membership={membership}
+        basePath={basePath}
+        active={active}
+        menu={menu}
+        setMenu={setMenu}
+        wide={wide}
+        drawerRef={drawerRef}
+        navigate={navigate}
+        logout={logout}
+      />
       <main className="workspace-main">
         <header>
           <button
+            ref={triggerRef}
             className="workspace-menu"
             onClick={() => setMenu(true)}
             aria-label="Open navigation"
@@ -174,10 +279,13 @@ export default function Workspace() {
             <button
               type="button"
               className="workspace-switch"
-              onClick={() => {
-                setKind(kind === "buyer" ? "organization" : "buyer");
-                setActive("Overview");
-              }}
+              onClick={() =>
+                navigate(
+                  kind === "buyer"
+                    ? workspacePath("organization", context.memberships[0])
+                    : "/buyer",
+                )
+              }
             >
               {kind === "buyer"
                 ? "Back to seller workspace"
@@ -186,10 +294,9 @@ export default function Workspace() {
           )}
           {!context.memberships.length && !context.platformRoles.length && (
             <StartSelling
-              onCreated={async () => {
+              onCreated={async (organization) => {
                 await refresh();
-                setKind("organization");
-                setActive("Overview");
+                navigate(`/org/${organization.slug}/listings`);
               }}
             />
           )}
@@ -216,11 +323,11 @@ export default function Workspace() {
           <WorkspaceContent
             active={active}
             kind={kind}
-            membership={context.memberships[0]}
+            membership={membership}
           />
         </section>
       </main>
-      {menu && (
+      {menu && !wide && (
         <button
           className="nav-scrim"
           onClick={() => setMenu(false)}
@@ -240,11 +347,11 @@ function StartSelling({ onCreated }) {
     setBusy(true);
     setError("");
     try {
-      await api("/organizations", {
+      const organization = await api("/organizations", {
         method: "POST",
         body: JSON.stringify({ name }),
       });
-      await onCreated();
+      await onCreated(organization);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -293,7 +400,12 @@ function WorkspaceContent({ active, kind, membership }) {
   if (active === "Team & access" && kind === "organization")
     return <TeamAccess membership={membership} />;
   if (active === "Listings" && kind === "organization")
-    return <SellerListings membership={membership} />;
+    return (
+      <SellerListings
+        key={membership.organization_id}
+        membership={membership}
+      />
+    );
   if (active === "Discover materials" && kind === "buyer") return <Discovery />;
   if (active === "Requirements" && kind === "buyer") return <Requirements />;
   if (active === "Review queue" && kind === "platform") return <ReviewQueue />;

@@ -20,10 +20,11 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run lint
+      - run: npm run format:check
       - run: npm run build
-      - run: npm audit --omit=dev --audit-level=high
+      - run: npm audit --audit-level=high
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5

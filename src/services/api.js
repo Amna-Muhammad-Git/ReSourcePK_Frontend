@@ -1,5 +1,6 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:5000/api/v1" : "");
 let accessToken = null;
 let refreshPromise = null;
 export const setAccessToken = (token) => {
@@ -7,8 +8,11 @@ export const setAccessToken = (token) => {
 };
 
 async function request(path, options = {}) {
+  if (!API_BASE_URL)
+    throw new Error("The service is unavailable. Please try again later.");
+  const { responseType, ...requestOptions } = options;
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
+    ...requestOptions,
     credentials: "include",
     headers: {
       "X-ReSourcePK-CSRF": "1",
@@ -20,6 +24,7 @@ async function request(path, options = {}) {
     },
   });
   if (response.status === 204) return null;
+  if (response.ok && responseType === "blob") return response.blob();
   const payload = await response.json().catch(() => ({
     error: { message: "The server returned an unreadable response" },
   }));
@@ -71,12 +76,9 @@ export async function api(path, options = {}) {
 }
 
 export async function downloadFile(path, filename) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-  });
-  if (!response.ok) throw new Error("Could not download the template");
-  const objectUrl = URL.createObjectURL(await response.blob());
+  const objectUrl = URL.createObjectURL(
+    await api(path, { responseType: "blob" }),
+  );
   const link = document.createElement("a");
   link.href = objectUrl;
   link.download = filename;

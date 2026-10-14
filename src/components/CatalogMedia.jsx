@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
 import { api } from "../services/api";
 import FormField from "./FormField";
+import { formatCurrency } from "../utils/formatters";
 
 export function ListingImage({ image }) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
     let active = true;
     api(`/listing-images/${image.id}`)
       .then((data) => {
-        if (active) setUrl(data.url);
+        if (active) {
+          setUrl(data.url);
+          setError("");
+        }
       })
       .catch((err) => {
         if (active) setError(err.message);
@@ -17,12 +22,22 @@ export function ListingImage({ image }) {
     return () => {
       active = false;
     };
-  }, [image.id]);
+  }, [image.id, revision]);
   if (error)
     return (
-      <p className="notice" role="status">
-        Image unavailable: {error}
-      </p>
+      <div className="notice" role="alert">
+        <p>Image unavailable: {error}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setUrl("");
+            setError("");
+            setRevision((value) => value + 1);
+          }}
+        >
+          Retry image
+        </button>
+      </div>
     );
   return url ? (
     <img
@@ -38,7 +53,7 @@ export function ListingImage({ image }) {
       }
     />
   ) : (
-    <p role="status">Loading image…</p>
+    <output className="collection-status">Loading image…</output>
   );
 }
 
@@ -58,7 +73,7 @@ export function PriceTiers({ tiers = [], unit }) {
           {tiers.map((tier) => (
             <tr key={tier.minQuantity}>
               <td>{tier.minQuantity}</td>
-              <td>{tier.pricePerUnit}</td>
+              <td>{formatCurrency(tier.pricePerUnit)}</td>
             </tr>
           ))}
         </tbody>
@@ -81,7 +96,7 @@ export function TierEditor({ tiers, onChange }) {
         Prices must stay the same or decrease.
       </p>
       {tiers.map((tier, index) => (
-        <div className="tier-editor-row" key={index}>
+        <div className="tier-editor-row" key={tier.rowId}>
           <FormField
             label={`Tier ${index + 1} minimum quantity`}
             type="number"
@@ -112,7 +127,10 @@ export function TierEditor({ tiers, onChange }) {
         type="button"
         disabled={tiers.length >= 10}
         onClick={() =>
-          onChange([...tiers, { minQuantity: "", pricePerUnit: "" }])
+          onChange([
+            ...tiers,
+            { rowId: crypto.randomUUID(), minQuantity: "", pricePerUnit: "" },
+          ])
         }
       >
         Add price tier

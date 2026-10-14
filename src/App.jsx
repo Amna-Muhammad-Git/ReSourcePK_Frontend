@@ -5,8 +5,10 @@ import AuthPage from "./pages/AuthPage";
 import VerifyEmail from "./pages/VerifyEmail";
 import ResetPassword from "./pages/ResetPassword";
 import AcceptInvitation from "./pages/AcceptInvitation";
-import Workspace from "./pages/Workspace";
+import Workspace, { WorkspaceEntry } from "./pages/Workspace";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Marketplace from "./pages/Marketplace";
+import ListingDetail from "./pages/ListingDetail";
 
 export default function App() {
   return (
@@ -14,6 +16,11 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route
+            path="/marketplace/listings/:listingId"
+            element={<ListingDetail />}
+          />
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/signup" element={<AuthPage mode="signup" />} />
           <Route path="/forgot-password" element={<AuthPage mode="forgot" />} />
@@ -28,7 +35,31 @@ export default function App() {
             path="/workspace/*"
             element={
               <ProtectedRoute>
-                <Workspace />
+                <WorkspaceEntry />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/buyer/*"
+            element={
+              <ProtectedRoute>
+                <Workspace kind="buyer" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/org/:orgSlug/*"
+            element={
+              <ProtectedRoute>
+                <Workspace kind="organization" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute>
+                <Workspace kind="platform" />
               </ProtectedRoute>
             }
           />

@@ -15,7 +15,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -24,6 +25,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-sonarjs": "^4.2.1",
     "globals": "^17.12.0",
+    "prettier": "3.9.10",
     "vite": "^8.3.0"
   }
 }

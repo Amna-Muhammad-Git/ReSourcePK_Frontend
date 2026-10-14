@@ -62,7 +62,13 @@ export default function AuthPage({ mode }) {
       const actions = {
         login: async () => {
           await login({ email: state.email, password: state.password });
-          navigate(location.state?.returnTo || "/workspace");
+          const destination = location.state?.from;
+          navigate(
+            destination
+              ? `${destination.pathname}${destination.search}`
+              : "/workspace",
+            { replace: true },
+          );
         },
         forgot: async () => {
           await api("/auth/forgot-password", {
