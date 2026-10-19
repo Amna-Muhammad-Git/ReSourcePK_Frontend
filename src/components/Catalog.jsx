@@ -919,3 +919,142 @@ export function ReviewQueue() {
     </section>
   );
 }
+
+export function SellerRequestQueue() {
+  const [items, setItems] = useState([]);
+  const [notes, setNotes] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const reload = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await api(
+        "/platform/seller-requests?status=pending&limit=50",
+      );
+      setItems(result);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    let active = true;
+    api("/platform/seller-requests?status=pending&limit=50")
+      .then((result) => active && setItems(result))
+      .catch((err) => active && setError(err.message))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+  async function decide(item, decision) {
+    const reviewNote = (notes[item.id] || "").trim();
+    if (decision === "rejected" && reviewNote.length < 3) {
+      setError("Add a short reason before rejecting this application.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/platform/seller-requests/${item.id}/decision`, {
+        method: "POST",
+        body: JSON.stringify({
+          decision,
+          ...(reviewNote ? { reviewNote } : {}),
+        }),
+      });
+      setNotice(`Application ${decision}.`);
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="catalog-panel">
+      <p className="eyebrow">Platform review</p>
+      <h2>Seller applications</h2>
+      <p>
+        Review the applicant’s identity and business details. Approving creates
+        the Seller organization and Owner membership on their existing account.
+      </p>
+      {error && (
+        <p role="alert" className="notice notice--error">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="notice notice--success">
+          {notice}
+        </p>
+      )}
+      {loading && <p>Loading applications…</p>}
+      {!loading && !error && items.length === 0 && (
+        <p>No Seller applications awaiting review.</p>
+      )}
+      <div className="catalog-grid">
+        {!loading &&
+          items.map((item) => (
+            <article className="catalog-card" key={item.id}>
+              <h3>{item.organization_name}</h3>
+              <p>
+                <strong>Applicant:</strong> {item.applicant_name} ·{" "}
+                {item.applicant_email}
+              </p>
+              <p>
+                <strong>CNIC:</strong>{" "}
+                {item.cnic_number ||
+                  `Not provided · ending ${item.cnic_last_four || "—"}`}
+              </p>
+              <p>
+                <strong>Contact:</strong> {item.contact_number}
+              </p>
+              <p>
+                <strong>Business address:</strong> {item.business_address}
+              </p>
+              <p>
+                <strong>Submitted:</strong>{" "}
+                {new Date(item.created_at).toLocaleString()}
+              </p>
+              <FormField
+                label={`Review note for ${item.organization_name}`}
+                value={notes[item.id] || ""}
+                maxLength="1000"
+                onChange={(event) =>
+                  setNotes({ ...notes, [item.id]: event.target.value })
+                }
+              />
+              <button
+                type="button"
+                className="button"
+                onClick={() => decide(item, "approved")}
+                disabled={
+                  busy ||
+                  !item.applicant_name ||
+                  !item.organization_name ||
+                  !item.contact_number ||
+                  !item.business_address ||
+                  !item.cnic_number
+                }
+              >
+                Approve and create organization
+              </button>
+              <button
+                type="button"
+                onClick={() => decide(item, "rejected")}
+                disabled={busy || (notes[item.id] || "").trim().length < 3}
+              >
+                Reject
+              </button>
+            </article>
+          ))}
+      </div>
+    </section>
+  );
+}

@@ -61,6 +61,17 @@ export const AuthProvider = ({ children }) => {
     setContext(data.context);
     return data.context;
   }, []);
+  const googleLogin = useCallback(async (credential, entryPoint, nonce) => {
+    const seller = entryPoint === "seller";
+    const data = await api(seller ? "/auth/google/seller" : "/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential, nonce }),
+    });
+    if (data.verificationRequired) return data;
+    setAccessToken(data.accessToken);
+    setContext(data.context);
+    return data;
+  }, []);
   const logout = useCallback(async () => {
     try {
       await api("/auth/logout", { method: "POST" });
@@ -70,8 +81,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
   const value = useMemo(
-    () => ({ context, loading, login, logout, refresh }),
-    [context, loading, login, logout, refresh],
+    () => ({ context, loading, login, googleLogin, logout, refresh }),
+    [context, loading, login, googleLogin, logout, refresh],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

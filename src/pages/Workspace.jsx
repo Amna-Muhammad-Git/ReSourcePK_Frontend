@@ -13,7 +13,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Link,
   Navigate,
@@ -29,6 +29,7 @@ import {
   Discovery,
   Requirements,
   ReviewQueue,
+  SellerRequestQueue,
   SellerListings,
 } from "../components/Catalog";
 
@@ -64,6 +65,7 @@ const roleConfig = {
       [Building2, "Organizations"],
       [Users, "Users"],
       [ClipboardCheck, "Review queue"],
+      [Building2, "Seller applications"],
       [BarChart3, "Platform analytics"],
     ],
   },
@@ -293,12 +295,10 @@ export default function Workspace({ kind }) {
             </button>
           )}
           {!context.memberships.length && !context.platformRoles.length && (
-            <StartSelling
-              onCreated={async (organization) => {
-                await refresh();
-                navigate(`/org/${organization.slug}/listings`);
-              }}
-            />
+            <StartSelling context={context} refresh={refresh} />
+          )}
+          {kind === "buyer" && context.memberships.length > 0 && (
+            <StartSelling context={context} refresh={refresh} />
           )}
           <div className="welcome">
             <div>
@@ -337,27 +337,80 @@ export default function Workspace({ kind }) {
     </div>
   );
 }
-function StartSelling({ onCreated }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
+function StartSelling({ context, refresh }) {
+  const [open, setOpen] = useState(true);
+  const [form, setForm] = useState({
+    applicantName: context.user.full_name || "",
+    cnicNumber: "",
+    organizationName: "",
+    contactNumber: "",
+    businessAddress: "",
+  });
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    api("/seller/requests/mine")
+      .then((result) => {
+        if (!active) return;
+        setRequests(result);
+        if (result[0])
+          setForm((current) => ({
+            ...current,
+            applicantName: result[0].applicant_name || current.applicantName,
+            organizationName: result[0].organization_name || "",
+            contactNumber: result[0].contact_number || "",
+            businessAddress: result[0].business_address || "",
+          }));
+      })
+      .catch((err) => active && setError(err.message))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+  const latest = requests[0];
+  const update = (event) =>
+    setForm({ ...form, [event.target.name]: event.target.value });
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     setError("");
+    setMessage("");
     try {
-      const organization = await api("/organizations", {
+      const created = await api("/seller/requests", {
         method: "POST",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(form),
       });
-      await onCreated(organization);
+      setRequests([
+        created,
+        ...requests.filter((item) => item.id !== created.id),
+      ]);
+      setMessage(
+        latest?.status === "pending"
+          ? "Your pending Seller application was updated."
+          : "Your Seller application was submitted for platform review.",
+      );
+      setForm({ ...form, cnicNumber: "" });
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
     }
   }
+  async function openSellerWorkspace() {
+    const updated = await refresh();
+    const approvedMembership = updated?.memberships?.[0];
+    if (approvedMembership)
+      window.location.assign(`/org/${approvedMembership.slug}/listings`);
+  }
+  const submitLabel =
+    latest?.status === "pending"
+      ? "Update pending application"
+      : "Submit Seller application";
   return (
     <section className="start-selling">
       <button
@@ -365,34 +418,136 @@ function StartSelling({ onCreated }) {
         className="workspace-switch"
         onClick={() => setOpen(!open)}
       >
-        Start selling with this account
+        {latest?.status === "approved"
+          ? "Seller access approved"
+          : "Apply to become a Seller"}
       </button>
-      {open && (
-        <form onSubmit={submit}>
-          <p>
-            Keep this email and password. Create your seller organization and
-            become its Owner.
-          </p>
-          <label className="field">
-            <span>Organization name</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              minLength="2"
-              maxLength="180"
-            />
-          </label>
-          {error && (
-            <p className="notice notice--error" role="alert">
-              {error}
-            </p>
-          )}
-          <button className="button" type="submit" disabled={busy}>
-            {busy ? "Creating…" : "Create seller organization"}
-          </button>
-        </form>
+      {open && loading && (
+        <p className="form-hint">Loading Seller application status…</p>
       )}
+      {open && latest?.status === "pending" && (
+        <div className="notice notice--success" role="status">
+          Seller application for {latest.organization_name} is awaiting platform
+          review. You can update the application while it is pending.
+        </div>
+      )}
+      {open && latest?.status === "approved" && (
+        <div>
+          <p className="notice notice--success">
+            Seller access is approved. Your Buyer access remains active.
+          </p>
+          <button
+            className="button"
+            type="button"
+            onClick={openSellerWorkspace}
+          >
+            Open Seller workspace
+          </button>
+        </div>
+      )}
+      {open &&
+        !loading &&
+        (!latest ||
+          latest.status === "rejected" ||
+          latest.status === "pending") && (
+          <form onSubmit={submit}>
+            <p>
+              Submit your details for review. Seller access and the organization
+              workspace are created only after approval.
+            </p>
+            {latest?.status === "rejected" && (
+              <p className="notice notice--error">
+                Previous application was not approved:{" "}
+                {latest.review_note ||
+                  "Please update your details and apply again."}
+              </p>
+            )}
+            {latest?.status === "pending" && (
+              <p className="form-hint">
+                For privacy, your saved CNIC is not displayed. Re-enter it to
+                save updated application details.
+              </p>
+            )}
+            <label className="field">
+              <span>Applicant name</span>
+              <input
+                name="applicantName"
+                value={form.applicantName}
+                onChange={update}
+                required
+                minLength="2"
+                maxLength="120"
+                autoComplete="name"
+              />
+            </label>
+            <label className="field">
+              <span>CNIC number</span>
+              <input
+                name="cnicNumber"
+                value={form.cnicNumber}
+                onChange={update}
+                required
+                inputMode="numeric"
+                placeholder="12345-1234567-1"
+                pattern="(?:[0-9]{13}|[0-9]{5}-[0-9]{7}-[0-9]|[0-9]{5} [0-9]{7} [0-9])"
+                autoComplete="off"
+              />
+            </label>
+            <p className="form-hint">
+              Your CNIC is encrypted and visible only to authorized Seller
+              application reviewers.
+            </p>
+            <label className="field">
+              <span>Company or mill name</span>
+              <input
+                name="organizationName"
+                value={form.organizationName}
+                onChange={update}
+                required
+                minLength="2"
+                maxLength="180"
+                autoComplete="organization"
+              />
+            </label>
+            <label className="field">
+              <span>Contact number</span>
+              <input
+                name="contactNumber"
+                value={form.contactNumber}
+                onChange={update}
+                required
+                minLength="7"
+                maxLength="32"
+                autoComplete="tel"
+              />
+            </label>
+            <label className="field">
+              <span>Mill or business address</span>
+              <textarea
+                name="businessAddress"
+                value={form.businessAddress}
+                onChange={update}
+                required
+                minLength="5"
+                maxLength="500"
+                autoComplete="street-address"
+              />
+            </label>
+            {message && (
+              <p className="notice notice--success" role="status">
+                {message}
+              </p>
+            )}
+            {error && (
+              <p className="notice notice--error" role="alert">
+                {error}
+              </p>
+            )}
+            <button className="button" type="submit" disabled={busy}>
+              {busy ? "Saving…" : submitLabel}
+            </button>
+          </form>
+        )}
     </section>
   );
 }
@@ -409,6 +564,8 @@ function WorkspaceContent({ active, kind, membership }) {
   if (active === "Discover materials" && kind === "buyer") return <Discovery />;
   if (active === "Requirements" && kind === "buyer") return <Requirements />;
   if (active === "Review queue" && kind === "platform") return <ReviewQueue />;
+  if (active === "Seller applications" && kind === "platform")
+    return <SellerRequestQueue />;
   return (
     <div className="empty-panel">
       <div className="empty-art">
