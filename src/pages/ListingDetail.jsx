@@ -4,9 +4,12 @@ import Header from "../components/Header";
 import { ListingImage, PriceTiers } from "../components/CatalogMedia";
 import { api } from "../services/api";
 import { formatCurrency } from "../utils/formatters";
+import { useAuth } from "../hooks/useAuth";
+import { ListingPurchaseActions } from "../components/Purchases";
 
 export default function ListingDetail() {
   const { listingId } = useParams();
+  const { context } = useAuth();
   const [record, setRecord] = useState(null);
   const listing = record?.id === listingId ? record : null;
   const [failure, setFailure] = useState(null);
@@ -112,11 +115,7 @@ export default function ListingDetail() {
           )}
         </dl>
         <PriceTiers tiers={listing.price_tiers} unit={listing.unit} />
-        <p>
-          Save a requirement in your buyer workspace to find stock that fits
-          your quantity and price. Direct checkout and group purchases open in
-          the commerce phase.
-        </p>
+        <ListingPurchaseActions listing={listing} context={context} />
         <Link className="button" to="/workspace">
           Open your workspace
         </Link>

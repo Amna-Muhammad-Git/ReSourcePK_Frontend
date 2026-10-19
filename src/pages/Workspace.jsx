@@ -26,6 +26,7 @@ import { useAuth } from "../hooks/useAuth";
 import Brand from "../components/Brand";
 import { api } from "../services/api";
 import useNavigationDrawer from "../hooks/useNavigationDrawer";
+import { BuyerPurchases, SellerOrders } from "../components/Purchases";
 import {
   Discovery,
   Requirements,
@@ -579,8 +580,12 @@ function WorkspaceContent({ active, kind, membership, context }) {
   if (active === "Review queue" && kind === "platform") return <ReviewQueue />;
   if (active === "Seller applications" && kind === "platform")
     return <SellerRequestQueue />;
-  if (active === "Reviewers" && kind === "platform")
-    return <PlatformReviewers context={context} />;
+  const purchaseSection = {
+    "buyer:My purchases": <BuyerPurchases />,
+    "organization:Orders": <SellerOrders membership={membership} />,
+    "platform:Reviewers": <PlatformReviewers context={context} />,
+  }[kind + ":" + active];
+  if (purchaseSection) return purchaseSection;
   return (
     <div className="empty-panel">
       <div className="empty-art">
