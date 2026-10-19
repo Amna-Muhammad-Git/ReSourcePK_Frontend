@@ -599,6 +599,7 @@ function TeamAccess({ membership }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("staff");
   const [canInviteStaff, setCanInviteStaff] = useState(false);
+  const [staffPermissions, setStaffPermissions] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -630,13 +631,19 @@ function TeamAccess({ membership }) {
         `/organizations/${membership.organization_id}/invitations`,
         {
           method: "POST",
-          body: JSON.stringify({ email, role, canInviteStaff }),
+          body: JSON.stringify({
+            email,
+            role,
+            canInviteStaff: role === "manager" && canInviteStaff,
+            staffPermissions: role === "staff" ? staffPermissions : [],
+          }),
         },
       );
       setMessage(
         `Invitation sent to ${result.email}. It expires in ${result.expiresInHours} hours.`,
       );
       setEmail("");
+      setStaffPermissions([]);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -650,9 +657,9 @@ function TeamAccess({ membership }) {
         <h3>Invite a teammate</h3>
         <p>
           Invitations are email-bound, single-use and expire after 72 hours. The
-          Owner manages the organization, delegates operations to a Manager, and
-          may invite Staff directly. Managers can invite Staff only when the
-          Owner grants that permission.
+          Owners can invite Managers and Staff. Managers can invite Staff only
+          when the Owner grants that permission. Assign Staff access to view or
+          manage listings here; the API enforces these permissions.
         </p>
       </div>
       <form onSubmit={submit}>
@@ -688,6 +695,29 @@ function TeamAccess({ membership }) {
             Allow this manager to invite staff
           </label>
         )}
+        {role === "staff" && (
+          <fieldset className="staff-permission-fieldset">
+            <legend>Staff access</legend>
+            {["listings.view", "listings.manage"].map((permission) => (
+              <label className="check" key={permission}>
+                <input
+                  type="checkbox"
+                  checked={staffPermissions.includes(permission)}
+                  onChange={(event) =>
+                    setStaffPermissions((current) =>
+                      event.target.checked
+                        ? [...current, permission]
+                        : current.filter((item) => item !== permission),
+                    )
+                  }
+                />
+                {permission === "listings.view"
+                  ? "View listings"
+                  : "Create and manage listings"}
+              </label>
+            ))}
+          </fieldset>
+        )}
         {Boolean(error) && <div className="notice notice--error">{error}</div>}
         {Boolean(message) && (
           <div className="notice notice--success">{message}</div>
@@ -696,6 +726,135 @@ function TeamAccess({ membership }) {
           {busy ? "Sending…" : "Send secure invitation"}
         </button>
       </form>
+      <StaffAccessList membership={membership} />
     </section>
+  );
+}
+
+function StaffAccessList({ membership }) {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [saving, setSaving] = useState("");
+  const canManage = membership.role === "owner" || membership.can_invite_staff;
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setMembers(
+        await api(`/organizations/${membership.organization_id}/members`),
+      );
+      setError("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [membership.organization_id]);
+  useEffect(() => {
+    if (!canManage) return undefined;
+    const timer = window.setTimeout(load, 0);
+    return () => window.clearTimeout(timer);
+  }, [canManage, load]);
+  if (!canManage) return null;
+  const staff = members.filter((member) => member.role === "staff");
+  async function save(member, permissions) {
+    setSaving(member.membership_id);
+    setError("");
+    setNotice("");
+    try {
+      await api(
+        `/organizations/${membership.organization_id}/members/${member.membership_id}/permissions`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ permissions }),
+        },
+      );
+      setNotice(`Access updated for ${member.full_name}.`);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving("");
+    }
+  }
+  return (
+    <div className="team-members">
+      <div className="team-members-heading">
+        <div>
+          <p className="eyebrow">Team permissions</p>
+          <h4>Manage Staff access</h4>
+        </div>
+        <button
+          type="button"
+          className="button button--quiet"
+          onClick={load}
+          disabled={loading}
+        >
+          Refresh
+        </button>
+      </div>
+      {notice && (
+        <div className="notice notice--success" role="status">
+          {notice}
+        </div>
+      )}
+      {error && (
+        <div className="notice notice--error" role="alert">
+          {error}
+        </div>
+      )}
+      {loading && <p>Loading Staff…</p>}
+      {!loading && staff.length === 0 && <p>No active Staff members yet.</p>}
+      {!loading &&
+        staff.map((member) => (
+          <StaffAccessRow
+            key={`${member.membership_id}:${(member.permissions || []).join(",")}`}
+            member={member}
+            saving={saving === member.membership_id}
+            onSave={(permissions) => save(member, permissions)}
+          />
+        ))}
+    </div>
+  );
+}
+
+function StaffAccessRow({ member, saving, onSave }) {
+  const [permissions, setPermissions] = useState(member.permissions || []);
+  return (
+    <article className="team-member-row">
+      <div className="team-member-identity">
+        <strong>{member.full_name}</strong>
+        <span>{member.email}</span>
+      </div>
+      <div className="team-member-permissions">
+        {[
+          ["listings.view", "View listings"],
+          ["listings.manage", "Create and manage listings"],
+        ].map(([permission, label]) => (
+          <label className="check" key={permission}>
+            <input
+              type="checkbox"
+              checked={permissions.includes(permission)}
+              onChange={(event) =>
+                setPermissions((current) => {
+                  if (event.target.checked) return [...current, permission];
+                  return current.filter((item) => item !== permission);
+                })
+              }
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="button button--quiet"
+        disabled={saving}
+        onClick={() => onSave(permissions)}
+      >
+        {saving ? "Saving…" : "Save access"}
+      </button>
+    </article>
   );
 }

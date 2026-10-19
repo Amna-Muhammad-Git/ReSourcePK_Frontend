@@ -1258,6 +1258,60 @@ footer p {
   background: #fff;
   text-transform: capitalize;
 }
+.staff-permission-fieldset {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid #e2ddd2;
+  border-radius: 13px;
+}
+.staff-permission-fieldset legend {
+  padding: 0 6px;
+  color: #66616b;
+  font-size: 0.8rem;
+}
+.team-members {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 14px;
+  padding-top: 24px;
+  border-top: 1px solid #e2ddd2;
+}
+.team-members-heading,
+.team-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.team-members-heading h4 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.5rem;
+}
+.team-members-heading .eyebrow {
+  margin: 0 0 4px;
+}
+.team-member-row {
+  flex-wrap: wrap;
+  padding: 16px;
+  border: 1px solid #e2ddd2;
+  border-radius: 14px;
+}
+.team-member-identity,
+.team-member-permissions {
+  display: grid;
+  gap: 8px;
+}
+.team-member-identity span {
+  color: #66616b;
+  font-size: 0.85rem;
+}
+.team-member-permissions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+}
 .check {
   display: flex;
   align-items: center;
