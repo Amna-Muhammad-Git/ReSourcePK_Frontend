@@ -11,6 +11,7 @@ import {
   Settings,
   ShoppingBag,
   Users,
+  UserCog,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -66,6 +67,7 @@ const roleConfig = {
       [Users, "Users"],
       [ClipboardCheck, "Review queue"],
       [Building2, "Seller applications"],
+      [UserCog, "Reviewers"],
       [BarChart3, "Platform analytics"],
     ],
   },
@@ -160,20 +162,26 @@ function WorkspaceSidebar({
         </label>
       )}
       <nav aria-label="Workspace sections">
-        {config.nav.map(([Icon, label]) => (
-          <Link
-            key={label}
-            className={active === label ? "active" : ""}
-            to={`${basePath}/${sectionPath(label)}`}
-            aria-current={active === label ? "page" : undefined}
-            onClick={() => {
-              setMenu(false);
-            }}
-          >
-            <Icon />
-            {label}
-          </Link>
-        ))}
+        {config.nav
+          .filter(
+            ([, label]) =>
+              label !== "Reviewers" ||
+              context.platformRoles.includes("platform_admin"),
+          )
+          .map(([Icon, label]) => (
+            <Link
+              key={label}
+              className={active === label ? "active" : ""}
+              to={`${basePath}/${sectionPath(label)}`}
+              aria-current={active === label ? "page" : undefined}
+              onClick={() => {
+                setMenu(false);
+              }}
+            >
+              <Icon />
+              {label}
+            </Link>
+          ))}
       </nav>
       <button className="logout" onClick={logout}>
         <LogOut /> Sign out
@@ -214,8 +222,12 @@ export default function Workspace({ kind }) {
   const membership = context.memberships.find((item) => item.slug === orgSlug);
   const config = roleConfig[kind];
   const basePath = workspacePath(kind, membership || context.memberships[0]);
+  const visibleNav =
+    kind === "platform" && !context.platformRoles.includes("platform_admin")
+      ? config.nav.filter(([, label]) => label !== "Reviewers")
+      : config.nav;
   const active =
-    config.nav.find(
+    visibleNav.find(
       ([, label]) => location.pathname === `${basePath}/${sectionPath(label)}`,
     )?.[1] || "Overview";
   const [primaryMetric, secondaryMetric, valueMetric] = metricLabels[kind];
@@ -324,6 +336,7 @@ export default function Workspace({ kind }) {
             active={active}
             kind={kind}
             membership={membership}
+            context={context}
           />
         </section>
       </main>
@@ -551,7 +564,7 @@ function StartSelling({ context, refresh }) {
     </section>
   );
 }
-function WorkspaceContent({ active, kind, membership }) {
+function WorkspaceContent({ active, kind, membership, context }) {
   if (active === "Team & access" && kind === "organization")
     return <TeamAccess membership={membership} />;
   if (active === "Listings" && kind === "organization")
@@ -566,6 +579,8 @@ function WorkspaceContent({ active, kind, membership }) {
   if (active === "Review queue" && kind === "platform") return <ReviewQueue />;
   if (active === "Seller applications" && kind === "platform")
     return <SellerRequestQueue />;
+  if (active === "Reviewers" && kind === "platform")
+    return <PlatformReviewers context={context} />;
   return (
     <div className="empty-panel">
       <div className="empty-art">
@@ -585,6 +600,237 @@ function WorkspaceContent({ active, kind, membership }) {
     </div>
   );
 }
+function PlatformReviewers({ context }) {
+  const [email, setEmail] = useState("");
+  const [permissions, setPermissions] = useState([]);
+  const [reviewers, setReviewers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const isAdmin = context.platformRoles.includes("platform_admin");
+  const options = [
+    ["seller_requests.review", "Review Seller applications"],
+    ["listings.review", "Review material listings"],
+  ];
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setReviewers(await api("/platform/reviewers"));
+      setError("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (!isAdmin) return undefined;
+    const timer = window.setTimeout(load, 0);
+    return () => window.clearTimeout(timer);
+  }, [isAdmin, load]);
+  if (!isAdmin)
+    return (
+      <section className="team-panel">
+        <p>Reviewer management is available to Platform Admins only.</p>
+      </section>
+    );
+  async function invite(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await api("/platform/reviewers", {
+        method: "POST",
+        body: JSON.stringify({ email, permissions }),
+      });
+      setNotice(
+        `Reviewer invitation sent to ${result.email}. It expires in ${result.expiresInHours} hours.`,
+      );
+      setEmail("");
+      setPermissions([]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function updateReviewer(reviewer, grants) {
+    setSaving(reviewer.user_id);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/platform/reviewers/${reviewer.user_id}/permissions`, {
+        method: "PUT",
+        body: JSON.stringify({ permissions: grants }),
+      });
+      setNotice(`Permissions updated for ${reviewer.full_name}.`);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving("");
+    }
+  }
+  async function revokeReviewer(reviewer) {
+    if (
+      !window.confirm(
+        `Revoke Platform Reviewer access for ${reviewer.full_name}?`,
+      )
+    )
+      return;
+    setSaving(reviewer.user_id);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/platform/reviewers/${reviewer.user_id}`, {
+        method: "DELETE",
+      });
+      setNotice(`Platform Reviewer access revoked for ${reviewer.full_name}.`);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving("");
+    }
+  }
+  return (
+    <section className="reviewer-admin">
+      <div className="reviewer-admin-intro">
+        <p className="eyebrow">Platform access</p>
+        <h2>Manage Reviewers</h2>
+        <p>
+          Invite trusted reviewers and give each only the review access they
+          need. You can change permissions or revoke access at any time.
+        </p>
+      </div>
+      <form className="reviewer-invite-form" onSubmit={invite}>
+        <label className="field">
+          <span>Reviewer email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="reviewer@example.com"
+            required
+          />
+        </label>
+        <fieldset className="staff-permission-fieldset">
+          <legend>Grant permissions</legend>
+          {options.map(([value, label]) => (
+            <label className="check" key={value}>
+              <input
+                type="checkbox"
+                checked={permissions.includes(value)}
+                onChange={(event) =>
+                  setPermissions((current) =>
+                    event.target.checked
+                      ? [...current, value]
+                      : current.filter((item) => item !== value),
+                  )
+                }
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+        <button className="button" type="submit" disabled={busy}>
+          {busy ? "Sending…" : "Invite Reviewer"}
+        </button>
+      </form>
+      {notice && (
+        <div className="notice notice--success" role="status">
+          {notice}
+        </div>
+      )}
+      {error && (
+        <div className="notice notice--error" role="alert">
+          {error}
+        </div>
+      )}
+      <div className="team-members">
+        <div className="team-members-heading">
+          <div>
+            <p className="eyebrow">Active platform accounts</p>
+            <h4>Reviewers</h4>
+          </div>
+          <button
+            type="button"
+            className="button button--quiet"
+            onClick={load}
+            disabled={loading}
+          >
+            Refresh
+          </button>
+        </div>
+        {loading && <p>Loading Reviewers…</p>}
+        {!loading && reviewers.length === 0 && <p>No active Reviewers yet.</p>}
+        {!loading &&
+          reviewers.map((reviewer) => (
+            <ReviewerAccessRow
+              key={reviewer.user_id}
+              reviewer={reviewer}
+              options={options}
+              busy={saving === reviewer.user_id}
+              onSave={(grants) => updateReviewer(reviewer, grants)}
+              onRevoke={() => revokeReviewer(reviewer)}
+            />
+          ))}
+      </div>
+    </section>
+  );
+}
+
+function ReviewerAccessRow({ reviewer, options, busy, onSave, onRevoke }) {
+  const [permissions, setPermissions] = useState(reviewer.permissions || []);
+  return (
+    <article className="team-member-row reviewer-access-row">
+      <div className="team-member-identity">
+        <strong>{reviewer.full_name}</strong>
+        <span>{reviewer.email}</span>
+      </div>
+      <div className="team-member-permissions">
+        {options.map(([value, label]) => (
+          <label className="check" key={value}>
+            <input
+              type="checkbox"
+              checked={permissions.includes(value)}
+              onChange={(event) =>
+                setPermissions((current) =>
+                  event.target.checked
+                    ? [...current, value]
+                    : current.filter((item) => item !== value),
+                )
+              }
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <div className="reviewer-actions">
+        <button
+          type="button"
+          className="button button--quiet"
+          disabled={busy}
+          onClick={() => onSave(permissions)}
+        >
+          {busy ? "Saving…" : "Save permissions"}
+        </button>
+        <button
+          type="button"
+          className="button button--quiet"
+          disabled={busy}
+          onClick={onRevoke}
+        >
+          Revoke access
+        </button>
+      </div>
+    </article>
+  );
+}
+
 function Metric({ label, unit }) {
   return (
     <article className="metric">
