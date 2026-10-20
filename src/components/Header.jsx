@@ -5,11 +5,9 @@ import Brand from "./Brand";
 export default function Header() {
   const [open, setOpen] = useState(false);
   const [signInOpen, setSignInOpen] = useState(false);
-  const [teamChoicesOpen, setTeamChoicesOpen] = useState(false);
   function closeNavigation() {
     setOpen(false);
     setSignInOpen(false);
-    setTeamChoicesOpen(false);
   }
   return (
     <header className="site-header">
@@ -53,29 +51,9 @@ export default function Header() {
               <Link to="/reviewer/login" onClick={closeNavigation}>
                 Platform Reviewer
               </Link>
-              <div className="nav-team-choice">
-                <button
-                  type="button"
-                  className="nav-team-toggle"
-                  aria-expanded={teamChoicesOpen}
-                  onClick={() => setTeamChoicesOpen(!teamChoicesOpen)}
-                >
-                  Seller staff / Manager <span aria-hidden="true">›</span>
-                </button>
-                {teamChoicesOpen && (
-                  <div className="nav-team-links">
-                    <Link
-                      to="/team/login?role=manager"
-                      onClick={closeNavigation}
-                    >
-                      Manager sign in
-                    </Link>
-                    <Link to="/team/login?role=staff" onClick={closeNavigation}>
-                      Staff sign in
-                    </Link>
-                  </div>
-                )}
-              </div>
+              <Link to="/team/login" onClick={closeNavigation}>
+                Seller Manager / Staff
+              </Link>
             </div>
           )}
         </div>

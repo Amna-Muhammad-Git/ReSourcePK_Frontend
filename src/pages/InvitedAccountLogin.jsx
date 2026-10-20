@@ -19,14 +19,16 @@ export default function InvitedAccountLogin({ kind = "reviewer" }) {
   const [busy, setBusy] = useState(false);
   const isReviewer = kind === "reviewer";
   const requestedRole = searchParams.get("role");
-  const teamRole = ["manager", "staff"].includes(requestedRole)
-    ? requestedRole
-    : "";
+  const [teamRole, setTeamRole] = useState(
+    ["manager", "staff"].includes(requestedRole) ? requestedRole : "",
+  );
   const invalidRole = Boolean(requestedRole && !teamRole);
   const roleLabel = teamRole
     ? teamRole[0].toUpperCase() + teamRole.slice(1)
     : "Invited team";
-  const title = isReviewer ? "Reviewer sign in." : `${roleLabel} sign in.`;
+  let title = "Seller team sign in.";
+  if (isReviewer) title = "Reviewer sign in.";
+  else if (teamRole) title = `${roleLabel} sign in.`;
   let forgotTarget = "/forgot-password?returnTo=%2Fteam%2Flogin";
   if (isReviewer)
     forgotTarget = "/forgot-password?returnTo=%2Freviewer%2Flogin";
@@ -84,10 +86,27 @@ export default function InvitedAccountLogin({ kind = "reviewer" }) {
       intro={
         isReviewer
           ? "Sign in with the email and password linked to your reviewer invitation."
-          : `Sign in with the account invited as ${teamRole || "a team member"}.`
+          : "Choose your invited role, then sign in with your email and password."
       }
     >
       <form className="auth-form" onSubmit={submit}>
+        {!isReviewer && (
+          <label className="field">
+            <span>Sign in as</span>
+            <select
+              name="teamRole"
+              value={teamRole}
+              onChange={(event) => setTeamRole(event.target.value)}
+              required
+            >
+              <option value="" disabled>
+                Choose Manager or Staff
+              </option>
+              <option value="manager">Manager</option>
+              <option value="staff">Staff</option>
+            </select>
+          </label>
+        )}
         <FormField
           label="Email address"
           name="email"
@@ -112,7 +131,7 @@ export default function InvitedAccountLogin({ kind = "reviewer" }) {
         />
         {(error || invalidRole) && (
           <div className="notice notice--error" role="alert">
-            {error || "Choose Manager or Staff from the sign-in menu."}
+            {error || "Choose Manager or Staff to continue."}
           </div>
         )}
         <button
