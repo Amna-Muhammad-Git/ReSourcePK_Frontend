@@ -293,25 +293,28 @@ export default function Workspace({ kind }) {
           </div>
         </header>
         <section className="workspace-body">
-          {context.memberships.length > 0 && !context.platformRoles.length && (
-            <button
-              type="button"
-              className="workspace-switch"
-              onClick={() =>
-                navigate(
-                  kind === "buyer"
-                    ? workspacePath("organization", context.memberships[0])
-                    : "/buyer",
-                )
-              }
-            >
-              {kind === "buyer"
-                ? "Back to seller workspace"
-                : "Buy materials with this account"}
-            </button>
-          )}
-          {active !== "Apply to become a Seller" && (
+          {active === "Overview" && (
             <>
+              {context.memberships.length > 0 &&
+                !context.platformRoles.length && (
+                  <div className="workspace-switch-row">
+                    <button
+                      type="button"
+                      className="workspace-switch"
+                      onClick={() =>
+                        navigate(
+                          kind === "buyer"
+                            ? `${workspacePath("organization", context.memberships[0])}/overview`
+                            : "/buyer/overview",
+                        )
+                      }
+                    >
+                      {kind === "buyer"
+                        ? "Switch to Seller workspace"
+                        : "Switch to Buyer workspace"}
+                    </button>
+                  </div>
+                )}
               <div className="welcome">
                 <div>
                   <p className="eyebrow">Foundation ready</p>
