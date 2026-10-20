@@ -352,7 +352,7 @@ export default function Workspace({ kind }) {
     </div>
   );
 }
-function StartSelling({ context, refresh }) {
+export function StartSelling({ context, refresh }) {
   const open = true;
   const [form, setForm] = useState({
     applicantName: context.user.full_name || "",

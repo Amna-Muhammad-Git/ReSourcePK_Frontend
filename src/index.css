@@ -114,6 +114,65 @@ a {
 .nav > a:hover:after {
   right: 0;
 }
+.nav-signin {
+  position: relative;
+}
+.nav-signin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.nav-signin-toggle > span {
+  font-size: 1rem;
+  line-height: 1;
+}
+.nav-signin-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 18px);
+  right: 0;
+  width: 250px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--cream);
+  box-shadow: 0 12px 28px rgba(23, 23, 32, 0.16);
+}
+.nav-signin-menu > a,
+.nav-team-toggle,
+.nav-team-links > a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-signin-menu > a:hover,
+.nav-team-toggle:hover,
+.nav-team-links > a:hover {
+  background: #e9e4da;
+}
+.nav-team-links {
+  display: grid;
+  gap: 2px;
+  padding-left: 12px;
+}
 .menu-button {
   display: none;
   background: none;
@@ -623,7 +682,7 @@ footer p {
   display: grid;
   gap: 17px;
 }
-.auth-form--signup .google-button {
+.auth-form--google .google-button {
   display: grid;
   justify-items: center;
 }
@@ -841,6 +900,15 @@ footer p {
   font-size: 0.72rem;
   color: #696570;
   margin: -7px 0 0;
+}
+.start-selling {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: clamp(22px, 3vw, 38px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--cream);
 }
 .start-selling form {
   display: grid;
@@ -1165,6 +1233,30 @@ footer p {
   padding: clamp(22px, 4vw, 55px);
   max-width: 1500px;
 }
+.seller-onboarding {
+  width: min(100%, 1120px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 22px clamp(20px, 4vw, 56px);
+}
+.seller-onboarding-header {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.seller-onboarding-title {
+  width: min(100%, 900px);
+  margin: clamp(32px, 7vh, 72px) auto 18px;
+}
+.seller-onboarding-title h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.55rem;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
 .welcome {
   background: var(--violet);
   color: #fff;
@@ -1435,6 +1527,12 @@ footer p {
     box-shadow: 8px 9px 0 var(--ink);
     flex-direction: column;
     align-items: stretch;
+  }
+  .nav-signin-menu {
+    position: static;
+    width: 100%;
+    margin-top: 10px;
+    box-shadow: none;
   }
   .nav--open {
     display: flex;

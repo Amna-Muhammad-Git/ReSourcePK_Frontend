@@ -55,7 +55,7 @@ export default function AcceptInvitation() {
           }),
         });
       if (context) await refresh();
-      navigate(context ? "/workspace" : "/login");
+      navigate(context ? "/workspace" : "/team/login");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -93,7 +93,7 @@ export default function AcceptInvitation() {
         <p>
           Already have an account?{" "}
           <Link
-            to="/login"
+            to="/team/login"
             state={{
               returnTo: `/accept-invitation?token=${encodeURIComponent(token)}`,
             }}

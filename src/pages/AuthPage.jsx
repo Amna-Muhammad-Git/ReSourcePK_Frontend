@@ -21,8 +21,7 @@ const copyByMode = {
   login: {
     eyebrow: "Welcome back",
     title: "Continue your work.",
-    intro:
-      "Choose your workspace sign-in. Invited team members use account sign-in.",
+    intro: "Sign in with Google as a Buyer or Seller.",
   },
   forgot: {
     eyebrow: "Account recovery",
@@ -112,9 +111,8 @@ export default function AuthPage({ mode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
-  const { login, googleLogin } = useAuth();
+  const { googleLogin } = useAuth();
   const [accountType, setAccountType] = useState("buyer");
-  const [passwordMode, setPasswordMode] = useState(false);
   const [state, setState] = useState({ email: params.get("email") || "" });
   const [fieldErrors, setFieldErrors] = useState({});
   const [busy, setBusy] = useState(false);
@@ -124,6 +122,16 @@ export default function AuthPage({ mode }) {
   const [nonce, setNonce] = useState("");
   const [nonceRole, setNonceRole] = useState("");
   const isForgot = mode === "forgot" || mode === "resend";
+  const requestedReturnTo = params.get("returnTo");
+  const returnToLogin = [
+    "/login",
+    "/reviewer/login",
+    "/team/login",
+    "/team/login?role=manager",
+    "/team/login?role=staff",
+  ].includes(requestedReturnTo)
+    ? requestedReturnTo
+    : "/login";
   const copy = copyByMode[mode];
   const loadNonce = useCallback(async () => {
     if (isForgot) return;
@@ -143,10 +151,6 @@ export default function AuthPage({ mode }) {
     const timer = window.setTimeout(loadNonce, 0);
     return () => window.clearTimeout(timer);
   }, [loadNonce]);
-  const destination = () => {
-    const from = location.state?.from;
-    return from ? `${from.pathname}${from.search}` : "/workspace";
-  };
   async function onCredential(credential) {
     setBusy(true);
     setError("");
@@ -164,10 +168,12 @@ export default function AuthPage({ mode }) {
         return;
       }
       const from = location.state?.from;
-      let path = "/buyer";
-      if (from) path = `${from.pathname}${from.search}`;
-      else if (accountType === "seller" && result.context.memberships.length)
-        path = `/org/${result.context.memberships[0].slug}`;
+      let path = from ? `${from.pathname}${from.search}` : "/buyer";
+      if (accountType === "seller") {
+        path = result.context.memberships.length
+          ? `/org/${result.context.memberships[0].slug}`
+          : "/seller/application";
+      }
       navigate(path, { replace: true });
     } catch (e) {
       setError(e.message);
@@ -187,10 +193,7 @@ export default function AuthPage({ mode }) {
     setError("");
     setFieldErrors({});
     try {
-      if (mode === "login") {
-        await login({ email: state.email, password: state.password });
-        navigate(destination(), { replace: true });
-      } else if (mode === "forgot") {
+      if (mode === "forgot") {
         await api("/auth/forgot-password", {
           method: "POST",
           body: JSON.stringify({ email: state.email }),
@@ -235,7 +238,7 @@ export default function AuthPage({ mode }) {
       )}
       {!done && !isForgot && (
         <div
-          className={`auth-form${mode === "signup" ? " auth-form--signup" : ""}`}
+          className={`auth-form${["signup", "login"].includes(mode) ? " auth-form--google" : ""}`}
         >
           <fieldset className="segmented">
             <legend className="sr-only">Choose sign-in role</legend>
@@ -254,36 +257,16 @@ export default function AuthPage({ mode }) {
               Seller
             </button>
           </fieldset>
-          {mode !== "signup" && (
-            <p className="form-hint">
-              {accountType === "buyer"
-                ? "Buyer sign-in opens your Buyer workspace. You can apply to become a Seller later."
-                : "Seller sign-in opens the Seller application flow. Seller access is available after platform review."}
-            </p>
-          )}
-          {!passwordMode && (
-            <GoogleButton
-              role={accountType}
-              nonce={nonceRole === accountType ? nonce : ""}
-              onCredential={onCredential}
-              busy={busy}
-              disabled={busy || nonceRole !== accountType || !nonce}
-            />
-          )}
-          {mode === "login" && (
-            <button
-              type="button"
-              className="text-action"
-              onClick={() => setPasswordMode(!passwordMode)}
-            >
-              {passwordMode
-                ? "Use Google sign-in"
-                : "Invited teammate or reviewer? Sign in with email and password"}
-            </button>
-          )}
+          <GoogleButton
+            role={accountType}
+            nonce={nonceRole === accountType ? nonce : ""}
+            onCredential={onCredential}
+            busy={busy}
+            disabled={busy || nonceRole !== accountType || !nonce}
+          />
         </div>
       )}
-      {!done && (passwordMode || isForgot) && (
+      {!done && isForgot && (
         <form onSubmit={submit} className="auth-form">
           <FormField
             label="Email address"
@@ -295,18 +278,6 @@ export default function AuthPage({ mode }) {
             required
             error={fieldErrors.email?.[0]}
           />
-          {mode === "login" && (
-            <FormField
-              label="Password"
-              name="password"
-              type="password"
-              value={state.password || ""}
-              onChange={update}
-              autoComplete="current-password"
-              required
-              error={fieldErrors.password?.[0]}
-            />
-          )}
           {error && (
             <div className="notice notice--error" role="alert">
               {error}
@@ -327,27 +298,23 @@ export default function AuthPage({ mode }) {
           </button>
         </form>
       )}
-      {error && !passwordMode && (
+      {error && !isForgot && (
         <div className="notice notice--error" role="alert">
           {error}
         </div>
       )}
       <div className="auth-links">
         {mode === "login" && (
-          <>
-            <Link to="/forgot-password">Forgot password?</Link>
-            <span>
-              New here? <Link to="/signup">Create account</Link>
-            </span>
-            <Link to="/resend-verification">No verification email?</Link>
-          </>
+          <span>
+            New here? <Link to="/signup">Create account</Link>
+          </span>
         )}
         {mode === "signup" && (
           <span>
             Already registered? <Link to="/login">Sign in</Link>
           </span>
         )}
-        {isForgot && <Link to="/login">Return to sign in</Link>}
+        {isForgot && <Link to={returnToLogin}>Return to sign in</Link>}
       </div>
     </AuthShell>
   );
