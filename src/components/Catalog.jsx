@@ -1020,14 +1020,16 @@ export function SellerRequestQueue() {
       {!loading && !error && items.length === 0 && (
         <p>No Seller applications awaiting review.</p>
       )}
-      <div className="catalog-grid">
+      <div className="catalog-grid seller-request-grid">
         {!loading &&
           items.map((item) => (
-            <article className="catalog-card" key={item.id}>
+            <article className="catalog-card seller-request-card" key={item.id}>
               <h3>{item.organization_name}</h3>
               <p>
-                <strong>Applicant:</strong> {item.applicant_name} ·{" "}
-                {item.applicant_email}
+                <strong>Applicant name:</strong> {item.applicant_name || "—"}
+              </p>
+              <p>
+                <strong>Email address:</strong> {item.applicant_email}
               </p>
               <p>
                 <strong>CNIC:</strong>{" "}

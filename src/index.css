@@ -819,6 +819,26 @@ footer p {
 .catalog-card summary {
   cursor: pointer;
 }
+.seller-request-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.seller-request-card {
+  display: grid;
+  gap: 16px;
+}
+.seller-request-card h3,
+.seller-request-card p {
+  margin: 0;
+}
+.seller-request-card strong {
+  display: block;
+  margin: 0 0 5px;
+}
+.seller-request-card button {
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+}
 .pagination,
 .requirement-row {
   display: flex;
