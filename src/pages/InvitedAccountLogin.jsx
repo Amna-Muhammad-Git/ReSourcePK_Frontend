@@ -91,21 +91,25 @@ export default function InvitedAccountLogin({ kind = "reviewer" }) {
     >
       <form className="auth-form" onSubmit={submit}>
         {!isReviewer && (
-          <label className="field">
-            <span>Sign in as</span>
-            <select
-              name="teamRole"
-              value={teamRole}
-              onChange={(event) => setTeamRole(event.target.value)}
-              required
+          <fieldset className="segmented">
+            <legend className="sr-only">Choose team role</legend>
+            <button
+              type="button"
+              className={teamRole === "manager" ? "active" : ""}
+              aria-pressed={teamRole === "manager"}
+              onClick={() => setTeamRole("manager")}
             >
-              <option value="" disabled>
-                Choose Manager or Staff
-              </option>
-              <option value="manager">Manager</option>
-              <option value="staff">Staff</option>
-            </select>
-          </label>
+              Manager
+            </button>
+            <button
+              type="button"
+              className={teamRole === "staff" ? "active" : ""}
+              aria-pressed={teamRole === "staff"}
+              onClick={() => setTeamRole("staff")}
+            >
+              Staff
+            </button>
+          </fieldset>
         )}
         <FormField
           label="Email address"
@@ -137,7 +141,7 @@ export default function InvitedAccountLogin({ kind = "reviewer" }) {
         <button
           className="button button--wide"
           type="submit"
-          disabled={busy || invalidRole}
+          disabled={busy || invalidRole || (!isReviewer && !teamRole)}
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
