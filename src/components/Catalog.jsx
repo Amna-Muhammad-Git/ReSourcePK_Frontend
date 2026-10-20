@@ -149,12 +149,14 @@ export function Discovery() {
         {!loading &&
           !error &&
           result.items.map((item) => (
-            <article className="catalog-card" key={item.id}>
-              {item.is_demo && <span className="demo-badge">Demo stock</span>}
+            <article className="catalog-card discovery-card" key={item.id}>
               {item.images?.[0] && <ListingImage image={item.images[0]} />}
-              <span className="eyebrow">
-                {item.material} · {item.condition}
-              </span>
+              <div className="discovery-card__meta">
+                {item.is_demo && <span className="demo-badge">Demo stock</span>}
+                <span className="eyebrow">
+                  {item.material} · {item.condition}
+                </span>
+              </div>
               <h3>{item.title}</h3>
               <Link
                 className="text-action"
