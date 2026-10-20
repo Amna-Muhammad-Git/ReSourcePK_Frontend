@@ -295,8 +295,10 @@ export default function Workspace({ kind }) {
         <section className="workspace-body">
           {active === "Overview" && (
             <>
-              {context.memberships.length > 0 &&
-                !context.platformRoles.length && (
+              {!context.platformRoles.length &&
+                (kind === "buyer"
+                  ? context.memberships.some((item) => item.role === "owner")
+                  : membership?.role === "owner") && (
                   <div className="workspace-switch-row">
                     <button
                       type="button"
@@ -920,16 +922,23 @@ function TeamAccess({ membership }) {
             required
           />
         </label>
-        <label className="field">
-          <span>Role</span>
-          <select value={role} onChange={(e) => setRole(e.target.value)}>
-            {roles.map((item) => (
-              <option value={item} key={item}>
-                {item.replace("_", " ")}
-              </option>
-            ))}
-          </select>
-        </label>
+        {roles.length > 1 ? (
+          <label className="field">
+            <span>Role</span>
+            <select value={role} onChange={(e) => setRole(e.target.value)}>
+              {roles.map((item) => (
+                <option value={item} key={item}>
+                  {item.replace("_", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <div className="field">
+            <span>Role</span>
+            <div className="team-role-fixed">Staff</div>
+          </div>
+        )}
         {role === "manager" && (
           <label className="check">
             <input

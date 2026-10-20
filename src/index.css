@@ -1497,6 +1497,17 @@ footer p {
     6px 6px;
   text-transform: capitalize;
 }
+.team-role-fixed {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 15px;
+  border: 1px solid #cbc5ba;
+  border-radius: 13px;
+  background: #fff;
+  text-transform: capitalize;
+}
 .staff-permission-fieldset {
   display: grid;
   gap: 12px;
