@@ -4,10 +4,12 @@ import {
   Building2,
   ChevronDown,
   ClipboardCheck,
+  ClipboardList,
+  Factory,
   LayoutDashboard,
   LogOut,
   Menu,
-  PackageSearch,
+  Search,
   Settings,
   ShoppingBag,
   Users,
@@ -41,10 +43,11 @@ const roleConfig = {
     icon: ShoppingBag,
     nav: [
       [LayoutDashboard, "Overview"],
-      [PackageSearch, "Discover materials"],
-      [PackageSearch, "Requirements"],
+      [Search, "Discover materials"],
+      [ClipboardList, "Requirements"],
       [Boxes, "My purchases"],
       [BarChart3, "Impact"],
+      [Factory, "Apply to become a Seller"],
     ],
   },
   organization: {
@@ -307,37 +310,35 @@ export default function Workspace({ kind }) {
                 : "Buy materials with this account"}
             </button>
           )}
-          {!context.memberships.length && !context.platformRoles.length && (
-            <StartSelling context={context} refresh={refresh} />
+          {active !== "Apply to become a Seller" && (
+            <>
+              <div className="welcome">
+                <div>
+                  <p className="eyebrow">Foundation ready</p>
+                  <h2>Welcome, {context.user.full_name.split(" ")[0]}.</h2>
+                  <p>
+                    Your secure workspace is active. Marketplace metrics will
+                    appear here as real listings and orders are created.
+                  </p>
+                </div>
+              </div>
+              <div className="metric-grid">
+                <Metric label={primaryMetric} />
+                <Metric label={secondaryMetric} />
+                <Metric label="Material diverted" unit="kg" />
+                <Metric
+                  label={valueMetric}
+                  unit={kind === "platform" ? "" : "PKR"}
+                />
+              </div>
+            </>
           )}
-          {kind === "buyer" && context.memberships.length > 0 && (
-            <StartSelling context={context} refresh={refresh} />
-          )}
-          <div className="welcome">
-            <div>
-              <p className="eyebrow">Foundation ready</p>
-              <h2>Welcome, {context.user.full_name.split(" ")[0]}.</h2>
-              <p>
-                Your secure workspace is active. Marketplace metrics will appear
-                here as real listings and orders are created.
-              </p>
-            </div>
-            <span className="status-pill">Verified account</span>
-          </div>
-          <div className="metric-grid">
-            <Metric label={primaryMetric} />
-            <Metric label={secondaryMetric} />
-            <Metric label="Material diverted" unit="kg" />
-            <Metric
-              label={valueMetric}
-              unit={kind === "platform" ? "" : "PKR"}
-            />
-          </div>
           <WorkspaceContent
             active={active}
             kind={kind}
             membership={membership}
             context={context}
+            refresh={refresh}
           />
         </section>
       </main>
@@ -352,7 +353,7 @@ export default function Workspace({ kind }) {
   );
 }
 function StartSelling({ context, refresh }) {
-  const [open, setOpen] = useState(true);
+  const open = true;
   const [form, setForm] = useState({
     applicantName: context.user.full_name || "",
     cnicNumber: "",
@@ -427,15 +428,6 @@ function StartSelling({ context, refresh }) {
       : "Submit Seller application";
   return (
     <section className="start-selling">
-      <button
-        type="button"
-        className="workspace-switch"
-        onClick={() => setOpen(!open)}
-      >
-        {latest?.status === "approved"
-          ? "Seller access approved"
-          : "Apply to become a Seller"}
-      </button>
       {open && loading && (
         <p className="form-hint">Loading Seller application status…</p>
       )}
@@ -507,10 +499,6 @@ function StartSelling({ context, refresh }) {
                 autoComplete="off"
               />
             </label>
-            <p className="form-hint">
-              Your CNIC is encrypted and visible only to authorized Seller
-              application reviewers.
-            </p>
             <label className="field">
               <span>Company or mill name</span>
               <input
@@ -565,7 +553,7 @@ function StartSelling({ context, refresh }) {
     </section>
   );
 }
-function WorkspaceContent({ active, kind, membership, context }) {
+function WorkspaceContent({ active, kind, membership, context, refresh }) {
   if (active === "Team & access" && kind === "organization")
     return <TeamAccess membership={membership} />;
   if (active === "Listings" && kind === "organization")
@@ -582,6 +570,9 @@ function WorkspaceContent({ active, kind, membership, context }) {
     return <SellerRequestQueue />;
   const purchaseSection = {
     "buyer:My purchases": <BuyerPurchases />,
+    "buyer:Apply to become a Seller": (
+      <StartSelling context={context} refresh={refresh} />
+    ),
     "organization:Orders": <SellerOrders membership={membership} />,
     "platform:Reviewers": <PlatformReviewers context={context} />,
   }[kind + ":" + active];

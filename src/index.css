@@ -623,6 +623,10 @@ footer p {
   display: grid;
   gap: 17px;
 }
+.auth-form--signup .google-button {
+  display: grid;
+  justify-items: center;
+}
 .field {
   display: grid;
   gap: 8px;
@@ -837,6 +841,52 @@ footer p {
   font-size: 0.72rem;
   color: #696570;
   margin: -7px 0 0;
+}
+.start-selling form {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+.start-selling form > p:first-child {
+  margin: 0 0 2px;
+  color: #625d69;
+  line-height: 1.55;
+}
+.start-selling .field {
+  gap: 6px;
+}
+.start-selling .field > span {
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.start-selling .field input,
+.start-selling .field textarea {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #cbc5ba;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--ink);
+  padding: 0 15px;
+  font: inherit;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+}
+.start-selling .field textarea {
+  height: 52px;
+  min-height: 52px;
+  padding: 0 15px;
+  resize: none;
+}
+.start-selling .field input:focus,
+.start-selling .field textarea:focus {
+  border-color: var(--violet);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(109, 57, 255, 0.12);
 }
 .button--wide {
   width: 100%;
@@ -1109,6 +1159,9 @@ footer p {
   margin-right: 10px;
 }
 .workspace-body {
+  display: grid;
+  align-content: start;
+  gap: 18px;
   padding: clamp(22px, 4vw, 55px);
   max-width: 1500px;
 }
@@ -1764,6 +1817,36 @@ footer p {
   border: 1px solid #e2ddd2;
   border-radius: 24px;
   background: #fff;
+}
+.purchase-actions--compact {
+  gap: 12px;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 16px;
+}
+.purchase-actions--compact h2 {
+  font-size: 1.2rem;
+}
+.discovery-groups {
+  padding: 14px;
+  border: 1px solid #e2ddd2;
+  border-radius: 15px;
+  background: #fffdf8;
+}
+.discovery-groups > summary {
+  cursor: pointer;
+  font-weight: 750;
+}
+.group-empty-state {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #f4f0e7;
+}
+.group-empty-state span {
+  color: #66616b;
+  font-size: 0.88rem;
 }
 .purchase-actions h2,
 .purchase-panel h2 {

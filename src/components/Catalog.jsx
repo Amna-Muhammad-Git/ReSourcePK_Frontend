@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 import useCollection from "../hooks/useCollection";
 import { CollectionStatus, Pagination } from "./CollectionStatus";
 import { formatCurrency as price } from "../utils/formatters";
+import { useAuth } from "../hooks/useAuth";
+import { ListingPurchaseActions } from "./Purchases";
 import {
   ListingImage,
   ListingImagesEditor,
@@ -29,6 +31,7 @@ const emptyListing = {
 const units = ["kg", "meter", "roll", "piece"];
 
 export function Discovery() {
+  const { context } = useAuth();
   const [filters, setFilters] = useState({
     q: "",
     material: "",
@@ -179,10 +182,14 @@ export function Discovery() {
                 </p>
                 <PriceTiers tiers={item.price_tiers} unit={item.unit} />
                 <p>
-                  Direct purchasing opens in the commerce phase. Below MOQ?
-                  Group buying will be available there.
+                  {item.purchase_mode === "group"
+                    ? "Join a Seller-created group order to pool your share with other Buyers."
+                    : "Buy directly or join a Seller-created group order when one is available."}
                 </p>
               </details>
+              {["group", "both"].includes(item.purchase_mode) && (
+                <GroupOrdersDisclosure listing={item} context={context} />
+              )}
             </article>
           ))}
       </div>
@@ -214,6 +221,21 @@ export function Discovery() {
         </div>
       )}
     </section>
+  );
+}
+
+function GroupOrdersDisclosure({ listing, context }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details
+      className="discovery-groups"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>View or join Seller group orders</summary>
+      {open && (
+        <ListingPurchaseActions listing={listing} context={context} groupOnly />
+      )}
+    </details>
   );
 }
 

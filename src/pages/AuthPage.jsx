@@ -93,7 +93,7 @@ function GoogleButton({ role, nonce, onCredential, busy, disabled }) {
     });
   }, [ready, role, nonce, onCredential, disabled]);
   return (
-    <div>
+    <div className="google-button">
       {!GOOGLE_CLIENT_ID ? (
         <p className="notice notice--error">
           Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID.
@@ -234,7 +234,9 @@ export default function AuthPage({ mode }) {
         </div>
       )}
       {!done && !isForgot && (
-        <div className="auth-form">
+        <div
+          className={`auth-form${mode === "signup" ? " auth-form--signup" : ""}`}
+        >
           <fieldset className="segmented">
             <legend className="sr-only">Choose sign-in role</legend>
             <button
@@ -252,11 +254,13 @@ export default function AuthPage({ mode }) {
               Seller
             </button>
           </fieldset>
-          <p className="form-hint">
-            {accountType === "buyer"
-              ? "Buyer sign-in opens your Buyer workspace. You can apply to become a Seller later."
-              : "Seller sign-in opens the Seller application flow. Seller access is available after platform review."}
-          </p>
+          {mode !== "signup" && (
+            <p className="form-hint">
+              {accountType === "buyer"
+                ? "Buyer sign-in opens your Buyer workspace. You can apply to become a Seller later."
+                : "Seller sign-in opens the Seller application flow. Seller access is available after platform review."}
+            </p>
+          )}
           {!passwordMode && (
             <GoogleButton
               role={accountType}

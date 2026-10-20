@@ -35,7 +35,11 @@ function useData(loader) {
   return { data, loading, error, reload, setError };
 }
 
-export function ListingPurchaseActions({ listing, context }) {
+export function ListingPurchaseActions({
+  listing,
+  context,
+  groupOnly = false,
+}) {
   const [quantity, setQuantity] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -96,12 +100,15 @@ export function ListingPurchaseActions({ listing, context }) {
       setBusy(false);
     }
   }
-  const directEnabled = ["direct", "both"].includes(listing.purchase_mode);
+  const directEnabled =
+    !groupOnly && ["direct", "both"].includes(listing.purchase_mode);
   const groupEnabled = ["group", "both"].includes(listing.purchase_mode);
   return (
-    <section className="purchase-actions">
-      <p className="eyebrow">Buying options</p>
-      <h2>Purchase this material</h2>
+    <section
+      className={`purchase-actions${groupOnly ? " purchase-actions--compact" : ""}`}
+    >
+      {!groupOnly && <p className="eyebrow">Buying options</p>}
+      <h2>{groupOnly ? "Open group orders" : "Purchase this material"}</h2>
       {!context && <p>Sign in as a Buyer to place an order or join a group.</p>}
       {context && directEnabled && (
         <form className="purchase-form" onSubmit={direct}>
@@ -127,7 +134,7 @@ export function ListingPurchaseActions({ listing, context }) {
       )}
       {groupEnabled && (
         <div className="purchase-list">
-          <h3>Open group orders</h3>
+          {!groupOnly && <h3>Open group orders</h3>}
           {groups.error && (
             <div className="notice notice--error" role="alert">
               {groups.error}
@@ -135,7 +142,13 @@ export function ListingPurchaseActions({ listing, context }) {
           )}
           {groups.loading && <p>Loading groups…</p>}
           {!groups.loading && !(groups.data?.items || []).length && (
-            <p>No open groups for this listing yet.</p>
+            <p className="group-empty-state">
+              <strong>No group orders are open right now.</strong>
+              <span>
+                The Seller has not started a group for this material yet. Check
+                back later to join when one opens.
+              </span>
+            </p>
           )}
           {(groups.data?.items || []).map((group) => (
             <BuyerGroup
