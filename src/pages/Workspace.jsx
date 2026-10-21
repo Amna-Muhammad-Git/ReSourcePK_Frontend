@@ -36,6 +36,15 @@ import {
   SellerRequestQueue,
   SellerListings,
 } from "../components/Catalog";
+import {
+  BuyerImpact,
+  OrganizationSettings,
+  PlatformAnalytics,
+  PlatformOrganizations,
+  PlatformUsers,
+  SellerAnalytics,
+  WorkspaceOverview,
+} from "../components/OperationalPages";
 
 const roleConfig = {
   buyer: {
@@ -76,11 +85,41 @@ const roleConfig = {
     ],
   },
 };
-const metricLabels = {
-  buyer: ["Active purchases", "Pool commitments", "Recovered value"],
-  organization: ["Published listings", "Open orders", "Recovered value"],
-  platform: ["Active organizations", "Pending reviews", "Verified users"],
-};
+function canAccessPlatformSection(label, context) {
+  const isAdmin = context.platformRoles.includes("platform_admin");
+  if (isAdmin) return true;
+  if (label === "Review queue")
+    return context.platformPermissions.includes("listings.review");
+  if (label === "Seller applications")
+    return context.platformPermissions.includes("seller_requests.review");
+  return ![
+    "Organizations",
+    "Users",
+    "Reviewers",
+    "Platform analytics",
+  ].includes(label);
+}
+function canAccessOrganizationSection(label, membership) {
+  const role = membership?.role;
+  const permissions = membership?.permissions || [];
+  if (label === "Settings") return role === "owner";
+  if (label === "Analytics" || label === "Orders")
+    return (
+      role === "owner" ||
+      (role === "manager" && permissions.includes("orders.confirm"))
+    );
+  if (label === "Listings" && role === "staff")
+    return permissions.some((permission) =>
+      ["listings.view", "listings.manage"].includes(permission),
+    );
+  return true;
+}
+function canAccessSection(kind, label, context, membership) {
+  if (kind === "platform") return canAccessPlatformSection(label, context);
+  if (kind === "organization")
+    return canAccessOrganizationSection(label, membership);
+  return true;
+}
 function WorkspaceSidebar({
   context,
   config,
@@ -95,9 +134,15 @@ function WorkspaceSidebar({
   navigate,
   logout,
 }) {
+  const canSwitchBuyer = context.memberships.some(
+    (item) => item.role === "owner",
+  );
   const availableKinds = [
-    "buyer",
-    ...(context.memberships.length ? ["organization"] : []),
+    ...(kind === "buyer" || canSwitchBuyer ? ["buyer"] : []),
+    ...(context.memberships.length &&
+    (kind === "organization" || canSwitchBuyer)
+      ? ["organization"]
+      : []),
     ...(context.platformRoles.length ? ["platform"] : []),
   ];
   return (
@@ -167,10 +212,8 @@ function WorkspaceSidebar({
       )}
       <nav aria-label="Workspace sections">
         {config.nav
-          .filter(
-            ([, label]) =>
-              label !== "Reviewers" ||
-              context.platformRoles.includes("platform_admin"),
+          .filter(([, label]) =>
+            canAccessSection(kind, label, context, membership),
           )
           .map(([Icon, label]) => (
             <Link
@@ -226,15 +269,13 @@ export default function Workspace({ kind }) {
   const membership = context.memberships.find((item) => item.slug === orgSlug);
   const config = roleConfig[kind];
   const basePath = workspacePath(kind, membership || context.memberships[0]);
-  const visibleNav =
-    kind === "platform" && !context.platformRoles.includes("platform_admin")
-      ? config.nav.filter(([, label]) => label !== "Reviewers")
-      : config.nav;
+  const visibleNav = config.nav.filter(([, label]) =>
+    canAccessSection(kind, label, context, membership),
+  );
   const active =
     visibleNav.find(
       ([, label]) => location.pathname === `${basePath}/${sectionPath(label)}`,
     )?.[1] || "Overview";
-  const [primaryMetric, secondaryMetric, valueMetric] = metricLabels[kind];
   const role =
     kind === "organization" ? membership?.role.replace("_", " ") : kind;
   if (
@@ -317,25 +358,11 @@ export default function Workspace({ kind }) {
                     </button>
                   </div>
                 )}
-              <div className="welcome">
-                <div>
-                  <p className="eyebrow">Foundation ready</p>
-                  <h2>Welcome, {context.user.full_name.split(" ")[0]}.</h2>
-                  <p>
-                    Your secure workspace is active. Marketplace metrics will
-                    appear here as real listings and orders are created.
-                  </p>
-                </div>
-              </div>
-              <div className="metric-grid">
-                <Metric label={primaryMetric} />
-                <Metric label={secondaryMetric} />
-                <Metric label="Material diverted" unit="kg" />
-                <Metric
-                  label={valueMetric}
-                  unit={kind === "platform" ? "" : "PKR"}
-                />
-              </div>
+              <WorkspaceOverview
+                kind={kind}
+                membership={membership}
+                context={context}
+              />
             </>
           )}
           <WorkspaceContent
@@ -559,29 +586,33 @@ export function StartSelling({ context, refresh }) {
   );
 }
 function WorkspaceContent({ active, kind, membership, context, refresh }) {
-  if (active === "Team & access" && kind === "organization")
-    return <TeamAccess membership={membership} />;
-  if (active === "Listings" && kind === "organization")
-    return (
-      <SellerListings
-        key={membership.organization_id}
-        membership={membership}
-      />
-    );
-  if (active === "Discover materials" && kind === "buyer") return <Discovery />;
-  if (active === "Requirements" && kind === "buyer") return <Requirements />;
-  if (active === "Review queue" && kind === "platform") return <ReviewQueue />;
-  if (active === "Seller applications" && kind === "platform")
-    return <SellerRequestQueue />;
-  const purchaseSection = {
+  if (active === "Overview") return null;
+  const section = {
+    "buyer:Impact": <BuyerImpact />,
+    "buyer:Discover materials": <Discovery />,
+    "buyer:Requirements": <Requirements />,
     "buyer:My purchases": <BuyerPurchases />,
     "buyer:Apply to become a Seller": (
       <StartSelling context={context} refresh={refresh} />
     ),
+    "organization:Analytics": <SellerAnalytics membership={membership} />,
+    "organization:Settings": <OrganizationSettings membership={membership} />,
+    "organization:Team & access": <TeamAccess membership={membership} />,
+    "organization:Listings": (
+      <SellerListings
+        key={membership.organization_id}
+        membership={membership}
+      />
+    ),
     "organization:Orders": <SellerOrders membership={membership} />,
+    "platform:Organizations": <PlatformOrganizations />,
+    "platform:Users": <PlatformUsers />,
+    "platform:Review queue": <ReviewQueue />,
+    "platform:Seller applications": <SellerRequestQueue />,
+    "platform:Platform analytics": <PlatformAnalytics />,
     "platform:Reviewers": <PlatformReviewers context={context} />,
   }[kind + ":" + active];
-  if (purchaseSection) return purchaseSection;
+  if (section) return section;
   return (
     <div className="empty-panel">
       <div className="empty-art">
@@ -828,16 +859,6 @@ function ReviewerAccessRow({ reviewer, options, busy, onSave, onRevoke }) {
           Revoke access
         </button>
       </div>
-    </article>
-  );
-}
-
-function Metric({ label, unit }) {
-  return (
-    <article className="metric">
-      <span>{label}</span>
-      <strong>—</strong>
-      <small>{unit || "No activity yet"}</small>
     </article>
   );
 }

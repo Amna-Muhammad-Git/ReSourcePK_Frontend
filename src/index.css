@@ -2125,3 +2125,240 @@ footer p {
 .purchase-create-group-form {
   margin-top: 18px;
 }
+
+.data-page {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+.data-page-heading,
+.data-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+}
+.data-page-heading h2,
+.data-panel-heading h3 {
+  margin: 0;
+  font-family: var(--display);
+  letter-spacing: -0.045em;
+}
+.data-page-heading h2 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+.data-page-heading p:last-child {
+  max-width: 760px;
+  margin: 10px 0 0;
+  color: #615e68;
+  line-height: 1.6;
+}
+.data-page-heading .eyebrow,
+.data-panel-heading .eyebrow {
+  margin-bottom: 9px;
+}
+.data-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.data-stat,
+.data-panel {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid #e2ddd2;
+  border-radius: 18px;
+  background: #fffaf0;
+}
+.data-stat {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.data-stat > span,
+.settings-readonly > span {
+  color: #716d77;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+.data-stat strong {
+  font-family: var(--display);
+  font-size: clamp(1.55rem, 2.5vw, 2.15rem);
+  letter-spacing: -0.045em;
+  overflow-wrap: anywhere;
+}
+.data-stat small {
+  color: #716d77;
+  line-height: 1.45;
+}
+.data-panel-heading {
+  align-items: center;
+  margin-bottom: 16px;
+}
+.data-panel-heading h3 {
+  font-size: 1.35rem;
+}
+.data-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.82rem;
+}
+.data-table th,
+.data-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.data-table th {
+  color: #696570;
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.data-table td strong {
+  font-weight: 760;
+}
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.data-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 4px 9px;
+  border-radius: 99px;
+  background: #ece8df;
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+.data-badge.demo {
+  background: #fff0c2;
+}
+.data-badge.live {
+  background: #e6f4dc;
+}
+.data-state {
+  margin: 16px 0;
+  color: #625e68;
+  line-height: 1.55;
+}
+.data-bars {
+  min-height: 210px;
+  display: grid;
+  grid-auto-columns: minmax(48px, 1fr);
+  grid-auto-flow: column;
+  align-items: end;
+  gap: 12px;
+  padding: 12px 0 0;
+  overflow-x: auto;
+}
+.data-bar-item {
+  height: 190px;
+  display: grid;
+  grid-template-rows: 22px 1fr 24px;
+  justify-items: center;
+  gap: 7px;
+  color: #716d77;
+  font-size: 0.68rem;
+}
+.data-bar-item strong {
+  color: var(--ink);
+}
+.data-bar-track {
+  width: min(34px, 70%);
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  border-radius: 10px 10px 4px 4px;
+  background: #ece8df;
+}
+.data-bar-track i {
+  width: 100%;
+  display: block;
+  border-radius: inherit;
+  background: var(--violet);
+}
+.data-section-title {
+  margin: 8px 0 -8px;
+  font-family: var(--display);
+  letter-spacing: -0.03em;
+}
+.settings-panel {
+  max-width: 780px;
+}
+.settings-form {
+  display: grid;
+  gap: 18px;
+}
+.settings-readonly {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.settings-readonly strong {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.data-pagination,
+.data-pagination > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.data-pagination {
+  padding-top: 18px;
+  color: #625e68;
+  font-size: 0.78rem;
+}
+.data-pagination .button {
+  min-height: 38px;
+}
+.data-page .notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .data-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .data-page-heading,
+  .data-panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .data-page-heading > .button {
+    align-self: flex-start;
+  }
+  .data-stat-grid {
+    gap: 10px;
+  }
+  .data-stat,
+  .data-panel {
+    padding: 16px;
+  }
+  .data-stat strong {
+    font-size: 1.55rem;
+  }
+  .data-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
