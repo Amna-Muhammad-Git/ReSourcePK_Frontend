@@ -307,9 +307,12 @@ export function BuyerPurchases() {
               <p>Seller response due {when(order.seller_response_due_at)}.</p>
             )}
             {order.status === "pending_payment" && (
-              <div className="notice">
-                Payment due {when(order.payment_due_at)}. Online checkout will
-                be available after payment gateway integration.
+              <div className="checkout-box">
+                <p className="form-hint">
+                  Payment due {when(order.payment_due_at)}. Checkout is secured
+                  by RapidGateway.
+                </p>
+                <CheckoutAction order={order} />
               </div>
             )}
             {order.status === "group_open" && (
@@ -332,6 +335,84 @@ export function BuyerPurchases() {
         ))}
       </div>
     </section>
+  );
+}
+
+function CheckoutAction({ order }) {
+  const [mobile, setMobile] = useState("");
+  const [testScenario, setTestScenario] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function start(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const attempt = await api(`/orders/${order.id}/checkout`, {
+        method: "POST",
+        body: JSON.stringify({
+          requestKey: key(),
+          mobile,
+          ...(testScenario ? { testScenario } : {}),
+        }),
+      });
+      window.location.assign(attempt.checkoutUrl);
+    } catch (failure) {
+      setError(failure.message);
+      setBusy(false);
+    }
+  }
+  return (
+    <form className="checkout-form" onSubmit={start}>
+      <label className="field">
+        <span>Pakistan mobile number</span>
+        <input
+          type="tel"
+          value={mobile}
+          onChange={(event) => setMobile(event.target.value)}
+          placeholder="03001234567"
+          pattern="03[0-9]{9}"
+          maxLength="11"
+          autoComplete="tel"
+          required
+        />
+      </label>
+      {import.meta.env.DEV && (
+        <label className="field">
+          <span>Sandbox outcome</span>
+          <select
+            value={testScenario}
+            onChange={(event) => setTestScenario(event.target.value)}
+          >
+            <option value="">Automatic (use amount)</option>
+            {[
+              "SUCCESS",
+              "FAILED",
+              "PENDING",
+              "EXPIRED",
+              "INSUFFICIENT_BALANCE",
+              "INVALID_OTP",
+              "TIMEOUT",
+              "DUPLICATE",
+            ].map((scenario) => (
+              <option key={scenario} value={scenario}>
+                {scenario.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {error && (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      )}
+      <button className="button" type="submit" disabled={busy}>
+        {busy
+          ? "Preparing secure checkout…"
+          : `Pay ${cash(order.total_minor)} PKR`}
+      </button>
+    </form>
   );
 }
 

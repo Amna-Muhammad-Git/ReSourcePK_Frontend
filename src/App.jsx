@@ -11,6 +11,7 @@ import SellerApplicationPage from "./pages/SellerApplicationPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Marketplace from "./pages/Marketplace";
 import ListingDetail from "./pages/ListingDetail";
+import PaymentReturn from "./pages/PaymentReturn";
 
 export default function App() {
   return (
@@ -41,6 +42,14 @@ export default function App() {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/accept-invitation" element={<AcceptInvitation />} />
+          <Route
+            path="/payment/return"
+            element={
+              <ProtectedRoute>
+                <PaymentReturn />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/seller/application"
             element={
