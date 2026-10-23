@@ -71,7 +71,7 @@ export default function Home() {
             </h2>
           </div>
           <p className="section-lead">
-            ReSource PK connects factory-scale supply with flexible demand
+            ReThread connects factory-scale supply with flexible demand
             without hiding minimum quantities, ownership, or fulfillment
             responsibility.
           </p>
@@ -160,7 +160,7 @@ export default function Home() {
       <footer>
         <Brand light />
         <p>Textile deadstock, recirculated with clarity.</p>
-        <span>© {new Date().getFullYear()} ReSource PK</span>
+        <span>© {new Date().getFullYear()} ReThread</span>
       </footer>
     </div>
   );

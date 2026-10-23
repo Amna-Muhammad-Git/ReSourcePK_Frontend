@@ -600,7 +600,7 @@ function WorkspaceContent({ active, kind, membership, context, refresh }) {
     "organization:Team & access": <TeamAccess membership={membership} />,
     "organization:Listings": (
       <SellerListings
-        key={membership.organization_id}
+        key={membership?.organization_id}
         membership={membership}
       />
     ),

@@ -4,7 +4,7 @@ export default function Brand({ light = false }) {
     <Link
       className={`brand ${light ? "brand--light" : ""}`}
       to="/"
-      aria-label="ReSource PK home"
+      aria-label="ReThread home"
     >
       <span className="brand__mark">
         <i />
@@ -12,7 +12,7 @@ export default function Brand({ light = false }) {
         <i />
       </span>
       <span>
-        ReSource<em>PK</em>
+        Re<em>Thread</em>
       </span>
     </Link>
   );

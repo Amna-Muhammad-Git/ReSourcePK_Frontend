@@ -15,7 +15,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const copyByMode = {
   signup: {
     eyebrow: "Create an account",
-    title: "Choose how you’ll use ReSource PK.",
+    title: "Choose how you’ll use ReThread.",
     intro: "Continue with Google as a Buyer or start a Seller application.",
   },
   login: {
