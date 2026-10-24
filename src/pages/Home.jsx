@@ -71,9 +71,8 @@ export default function Home() {
             </h2>
           </div>
           <p className="section-lead">
-            ReThread connects factory-scale supply with flexible demand
-            without hiding minimum quantities, ownership, or fulfillment
-            responsibility.
+            ReThread connects factory-scale supply with flexible demand without
+            hiding minimum quantities, ownership, or fulfillment responsibility.
           </p>
         </section>
         <section className="value-grid">
