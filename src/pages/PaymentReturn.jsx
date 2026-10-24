@@ -6,8 +6,10 @@ export default function PaymentReturn() {
   const [search] = useSearchParams();
   const attemptId = search.get("attempt");
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(Boolean(attemptId));
+  const [error, setError] = useState(
+    attemptId ? "" : "Payment reference is missing from the return link.",
+  );
   const refresh = useCallback(async () => {
     if (!attemptId) return;
     setLoading(true);
@@ -21,6 +23,9 @@ export default function PaymentReturn() {
     }
   }, [attemptId]);
   const status = data?.status;
+  const needsReview =
+    data?.reconciliation_required === true ||
+    (status === "succeeded" && data?.order_status !== "paid");
   const done = ["succeeded", "failed", "expired"].includes(status);
   useEffect(() => {
     if (!attemptId || done) return undefined;
@@ -35,7 +40,15 @@ export default function PaymentReturn() {
   let title = "Confirming your payment";
   let message =
     "RapidGateway is confirming the result. This page updates when the signed payment notification reaches us.";
-  if (status === "succeeded") {
+  if (!attemptId) {
+    title = "Payment link is incomplete";
+    message =
+      "Return to My purchases and open the payment action on your order.";
+  } else if (status === "succeeded" && needsReview) {
+    title = "Payment received; order needs review";
+    message =
+      "The gateway reported a successful payment, but this order is not marked paid. Please do not pay again; the payment needs reconciliation.";
+  } else if (status === "succeeded") {
     title = "Payment confirmed";
     message =
       "Your order is marked paid. You can review its status in My purchases.";
@@ -43,6 +56,10 @@ export default function PaymentReturn() {
     title = "Payment was not completed";
     message =
       "The payment attempt failed. Return to My purchases to start another attempt if the order is still payable.";
+  } else if (status === "expired") {
+    title = "Payment attempt expired";
+    message =
+      "This attempt is no longer payable. Check My purchases for the current order status before starting another payment.";
   } else if (error) {
     title = "We could not confirm the payment";
     message = error;
